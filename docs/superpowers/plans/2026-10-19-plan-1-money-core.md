@@ -437,6 +437,36 @@ describe("branch isolation", () => {
     expect(error).not.toBeNull();
   });
 
+  it("staff can create a service, which starts unreviewed", async () => {
+    const row = must(
+      await f.staff
+        .from("services")
+        .insert({ shop_id: f.shopId, name: "Lamination", flow: "counter_sale" })
+        .select("reviewed, created_by")
+        .single(),
+    );
+    expect(row).toEqual({ reviewed: false, created_by: f.staffId });
+  });
+
+  it("owner-created services are reviewed", async () => {
+    const row = must(await f.owner.from("services").select("reviewed").eq("id", f.services.xerox).single());
+    expect(row).toEqual({ reviewed: true });
+  });
+
+  it("service names are unique ignoring case and spaces", async () => {
+    const { error } = await f.staff
+      .from("services")
+      .insert({ shop_id: f.shopId, name: " xerox", flow: "counter_sale" });
+    expect(error).not.toBeNull();
+  });
+
+  it("staff cannot edit services", async () => {
+    const rows = must(
+      await f.staff.from("services").update({ fee_rule: { type: "fixed", value: 1 } }).eq("id", f.services.xerox).select("id"),
+    );
+    expect(rows).toHaveLength(0);
+  });
+
   it("staff can add customers to the shop", async () => {
     const { error } = await f.staff
       .from("customers")
@@ -530,10 +560,15 @@ create table public.services (
   fee_rule jsonb,
   commission_rule jsonb,
   portal_cost_rule jsonb,
+  aliases text[] not null default '{}', -- extra search words, e.g. {zerox,photocopy}
   active boolean not null default true,
-  created_at timestamptz not null default now(),
-  unique (shop_id, name)
+  reviewed boolean not null default false, -- false = created by staff, owner should check fee/commission
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
 );
+
+-- "Xerox" and " xerox" are the same service.
+create unique index services_shop_name_key on public.services (shop_id, lower(trim(name)));
 
 create table public.customers (
   id uuid primary key default gen_random_uuid(),
@@ -675,8 +710,9 @@ create policy accounts_update on public.accounts for update to authenticated
 
 create policy services_select on public.services for select to authenticated
   using (shop_id = private.my_shop_id());
+-- Staff may create services from the entry form; only the owner edits them.
 create policy services_insert on public.services for insert to authenticated
-  with check (shop_id = private.my_shop_id() and private.is_owner());
+  with check (shop_id = private.my_shop_id());
 create policy services_update on public.services for update to authenticated
   using (shop_id = private.my_shop_id() and private.is_owner())
   with check (shop_id = private.my_shop_id());
@@ -695,6 +731,18 @@ create policy ledger_lines_select on public.ledger_lines for select to authentic
   using (private.can_access_branch(branch_id));
 create policy day_closes_select on public.day_closes for select to authenticated
   using (private.can_access_branch(branch_id));
+
+-- Stamp who created a service; staff-created services start unreviewed.
+create function private.stamp_service() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  new.created_by := auth.uid();
+  new.reviewed := coalesce(private.is_owner(), false);
+  return new;
+end $$;
+
+create trigger services_stamp before insert on public.services
+  for each row execute function private.stamp_service();
 
 -- Ledger tables are written only by security definer functions.
 revoke insert, update, delete on public.transactions, public.ledger_lines, public.day_closes
@@ -751,7 +799,7 @@ Expected: ends with `Finished supabase db reset`. No SQL errors.
 - [ ] **Step 7: Run tests to verify they pass**
 
 Run: `npm run test:db -- tests/db/access.test.ts`
-Expected: all 11 tests PASS.
+Expected: all 15 tests PASS.
 
 - [ ] **Step 8: Commit**
 
@@ -1926,7 +1974,7 @@ git commit -m "feat(db): day close with expected vs counted drawer cash"
 - [ ] **Step 1: Fresh reset + full suite**
 
 Run: `npm run db:reset && npm run test:db`
-Expected: 7 test files, all tests PASS (1 + 11 + 6 + 13 + 9 + 6 + 3 = 49).
+Expected: 7 test files, all tests PASS (1 + 15 + 6 + 13 + 9 + 6 + 3 = 53).
 
 - [ ] **Step 2: Run Supabase security advisor**
 

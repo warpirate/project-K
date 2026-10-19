@@ -1,4 +1,8 @@
-# Project K — Shop Transaction Manager (v1) Design
+# Project K — Shop Transaction 
+
+
+
+Manager (v1) Design
 
 Date: 2026-10-19
 Status: Draft for review
@@ -12,6 +16,7 @@ First user: one shop with two branches. Later goal: offer it to other shops, so 
 ## 2. Scope
 
 ### In v1
+
 - Website only (no mobile app), works in PC and phone browsers.
 - Manual transaction entry.
 - Shop, branches, staff logins, roles.
@@ -26,6 +31,7 @@ First user: one shop with two branches. Later goal: offer it to other shops, so 
 - First-time setup wizard.
 
 ### Not in v1 (later)
+
 - v1.1: offline fallback (queue entries during internet loss, sync later).
 - v2: Android helper app capturing transaction SMS / portal notifications as draft entries.
 - Portal report (CSV/Excel) upload and auto-matching.
@@ -35,9 +41,9 @@ First user: one shop with two branches. Later goal: offer it to other shops, so 
 
 ## 3. Users and roles
 
-| Role | Access |
-|---|---|
-| Owner | All branches. Enters transactions in any branch, manages settings, staff, services, sees all reports and dashboard. |
+| Role  | Access                                                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner | All branches. Enters transactions in any branch, manages settings, staff, services, sees all reports and dashboard.                                                                   |
 | Staff | Exactly one branch. Enters transactions, reversals, transfers, expenses, customers/udhaar, day close for own branch. Sees only own branch data. No settings, no cross-branch reports. |
 
 Access rules are enforced in the database (Supabase Row Level Security), not only in the UI.
@@ -57,17 +63,17 @@ Owner phone/PC  ───┼──> Web app (Next.js, TypeScript) ──> Supaba
 
 ## 5. Data model
 
-| Table | Key fields |
-|---|---|
-| `shops` | id, name |
-| `branches` | id, shop_id, name |
-| `profiles` | user_id, shop_id, role (owner/staff), branch_id (null for owner), name, active |
-| `accounts` | id, shop_id, branch_id, name, type (cash / wallet / bank), active |
-| `services` | id, shop_id, name, category, flow_type, fee_rule, commission_rule, portal_cost_rule, default_account_id, active |
-| `customers` | id, shop_id, name, phone |
+| Table            | Key fields                                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `shops`        | id, name                                                                                                                                                                             |
+| `branches`     | id, shop_id, name                                                                                                                                                                    |
+| `profiles`     | user_id, shop_id, role (owner/staff), branch_id (null for owner), name, active                                                                                                       |
+| `accounts`     | id, shop_id, branch_id, name, type (cash / wallet / bank), active                                                                                                                    |
+| `services`     | id, shop_id, name, category, flow_type, fee_rule, commission_rule, portal_cost_rule, aliases, active, reviewed, created_by                                                                      |
+| `customers`    | id, shop_id, name, phone                                                                                                                                                             |
 | `transactions` | id, shop_id, branch_id, service_id, customer_id?, kind, amount, fee, commission, portal_cost, payment_mode (cash / upi / udhaar / split), note, created_by, created_at, reversal_of? |
-| `ledger_lines` | id, transaction_id, account_id OR customer_id, amount (signed, paise) |
-| `day_closes` | id, branch_id, date, expected_cash, counted_cash, difference, note, closed_by, closed_at |
+| `ledger_lines` | id, transaction_id, account_id OR customer_id, amount (signed, paise)                                                                                                                |
+| `day_closes`   | id, branch_id, date, expected_cash, counted_cash, difference, note, closed_by, closed_at                                                                                             |
 
 - All money stored as integer paise.
 - Account balance = sum of its ledger lines. Customer due = sum of that customer's ledger lines. Never stored as editable numbers.
@@ -75,21 +81,23 @@ Owner phone/PC  ───┼──> Web app (Next.js, TypeScript) ──> Supaba
 - `transactions.kind`: `service`, `expense`, `transfer`, `udhaar_payment`, `opening_balance`, `reversal`.
 
 ### Fee / commission rules
+
 Each rule is one of: fixed amount, percentage of amount, or slab table (amount ranges → fixed value). Staff can override the computed fee on the entry form; the override is stored on the transaction.
 
 ## 6. Money flows
 
 `flow_type` on each service defines how ledger lines are generated. "Customer side" = drawer cash, or bank/UPI account if paid by UPI, or customer due if udhaar.
 
-| flow_type | Example | Customer side | Portal wallet | Shop earns |
-|---|---|---|---|---|
-| `cash_out` (AEPS withdrawal) | ₹2000, fee ₹20 | −(amount − fee) = −1980 | +amount = +2000, + commission | fee + commission |
-| `cash_in` (money transfer, deposit) | ₹5000, fee ₹50 | +(amount + fee) = +5050 | −amount = −5000, + commission | fee + commission |
-| `pay_through` (recharge, bill pay) | ₹299 | +amount = +299 | −amount = −299, + commission | commission (+ fee if charged) |
-| `application` (PAN, certificates) | charge ₹250, portal cost ₹107 | +charge = +250 | −portal_cost = −107 | charge − portal_cost |
-| `counter_sale` (xerox, print, lamination) | 10 pages, ₹20 | +amount = +20 | — | amount |
+| flow_type                                   | Example                         | Customer side              | Portal wallet                   | Shop earns                    |
+| ------------------------------------------- | ------------------------------- | -------------------------- | ------------------------------- | ----------------------------- |
+| `cash_out` (AEPS withdrawal)              | ₹2000, fee ₹20                | −(amount − fee) = −1980 | +amount = +2000, + commission   | fee + commission              |
+| `cash_in` (money transfer, deposit)       | ₹5000, fee ₹50                | +(amount + fee) = +5050    | −amount = −5000, + commission | fee + commission              |
+| `pay_through` (recharge, bill pay)        | ₹299                           | +amount = +299             | −amount = −299, + commission  | commission (+ fee if charged) |
+| `application` (PAN, certificates)         | charge ₹250, portal cost ₹107 | +charge = +250             | −portal_cost = −107           | charge − portal_cost         |
+| `counter_sale` (xerox, print, lamination) | 10 pages, ₹20                  | +amount = +20              | —                              | amount                        |
 
 Other entries:
+
 - **Expense:** cash/bank −amount; reported as expense.
 - **Transfer:** account A −amount, account B +amount (wallet top-up, cash deposit to bank, moving cash between branches by owner). Not earnings.
 - **Udhaar payment:** customer due −amount, cash/bank +amount.
@@ -107,24 +115,32 @@ Profit = fees + commissions + counter sales + (application charge − portal cos
 
 ## 8. Screens
 
-| Screen | Who | Notes |
-|---|---|---|
-| Setup wizard | Owner, first login | Branches → accounts + opening balances → services + fees/commission → staff invites. |
-| Owner home | Owner | Quick entry form at top (branch picker remembers last branch), dashboard below. On phone a fixed "+ New entry" button. |
-| Staff home / New entry | Staff | Fast form: service → amount → fee (auto, editable) → payment mode → optional customer → save. Keyboard-friendly for PC. Shows today's entries below. |
-| Entries list | Staff (own branch), Owner (all) | Filter by date, branch, service, staff. Reverse button. |
-| Balances & transfers | Staff, Owner | Live balance per account; transfer / top-up form; expense form. |
-| Customers & udhaar | Staff, Owner | Customer search by name/phone, dues list, history, record payment. |
-| Day close | Staff, Owner | Shows expected cash, enter counted cash, save difference with note. |
-| Reports | Owner | Profit by day / month / service / branch / staff; transaction list; Excel export. |
-| Settings | Owner | Branches, staff, accounts, services and rules. |
+| Screen                 | Who                             | Notes                                                                                                                                                     |
+| ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Setup wizard           | Owner, first login              | Branches → accounts + opening balances → services + fees/commission → staff invites.                                                                   |
+| Owner home             | Owner                           | Quick entry form at top (branch picker remembers last branch), dashboard below. On phone a fixed "+ New entry" button.                                    |
+| Staff home / New entry | Staff                           | Fast form: service → amount → fee (auto, editable) → payment mode → optional customer → save. Keyboard-friendly for PC. Shows today's entries below. |
+| Entries list           | Staff (own branch), Owner (all) | Filter by date, branch, service, staff. Reverse button.                                                                                                   |
+| Balances & transfers   | Staff, Owner                    | Live balance per account; transfer / top-up form; expense form.                                                                                           |
+| Customers & udhaar     | Staff, Owner                    | Customer search by name/phone, dues list, history, record payment.                                                                                        |
+| Day close              | Staff, Owner                    | Shows expected cash, enter counted cash, save difference with note.                                                                                       |
+| Reports                | Owner                           | Profit by day / month / service / branch / staff; transaction list; Excel export.                                                                         |
+| Settings               | Owner                           | Branches, staff, accounts, services and rules.                                                                                                            |
+
+### Service picker (entry form)
+
+- Typing in the service box filters existing services by name and aliases (e.g. "zerox", "photocopy" find Xerox); matching ignores case and extra spaces.
+- If a match exists, staff select it. No duplicate service can be created (names unique ignoring case/spaces).
+- If nothing matches, the list offers **+ Create "<typed text>"**: a small popup (name, flow type, fee/commission) creates the service and returns to the entry with it selected.
+- Owner and staff can both create services. Staff-created services are marked unreviewed and shown on the owner dashboard so the owner can check fee/commission. Only the owner can edit services.
 
 ### Owner dashboard contents
+
 - Filters: date range (today, yesterday, week, month, custom), branch (all / one).
 - Cards: profit, fees, commission, expenses, each with change vs previous period. Card click → underlying entries.
 - Profit by branch, profit by service, 30-day profit trend.
 - Live balances per branch account.
-- Alerts: day-close cash differences, total udhaar outstanding, accounts with negative balance.
+- Alerts: day-close cash differences, total udhaar outstanding, accounts with negative balance, new services created by staff awaiting review.
 
 ## 9. Error handling
 
