@@ -77,7 +77,7 @@ export default async function DashboardPage({
 
       <FilterBar period={range.key} from={range.from} to={range.to} branch={branch} branches={ctx.branches} />
 
-      <section aria-label="Totals" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <section aria-label="Totals" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Tile big label="Profit" value={t.profit} prev={p.profit} />
         <Tile label="Your charges" value={t.charges} prev={p.charges} />
         <Tile label="Commission" value={t.commission} prev={p.commission} />
@@ -186,9 +186,9 @@ function Tile({
   const up = value > prev;
   const good = value === prev ? null : lowerIsBetter ? !up : up;
   return (
-    <div className={cx("rounded-2xl border border-rule bg-raised p-4", big && "sm:col-span-2 lg:col-span-1 border-accent/40")}>
+    <div className={cx("rounded-2xl border border-rule bg-raised p-4", big && "col-span-2 border-accent/40 lg:col-span-1")}>
       <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">{label}</p>
-      <p className={cx("money mt-1 font-semibold", big ? "text-3xl" : "text-2xl", !count && value < 0 && "text-out")}>
+      <p className={cx("money mt-1 font-semibold", big ? "text-3xl" : "text-xl sm:text-2xl", !count && value < 0 && "text-out")}>
         {count ? value : formatINR(value)}
       </p>
       <p className="mt-1 flex items-center gap-1 text-xs text-ink-soft">

@@ -5,6 +5,7 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 15_000 },
   use: { baseURL: "http://localhost:3000", trace: "retain-on-failure" },
+  workers: 1, // one dev server + one shared Supabase: run serially to avoid flaky timing
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], channel: "chrome" } },
     { name: "phone", use: { ...devices["Pixel 7"], channel: "chrome" } },

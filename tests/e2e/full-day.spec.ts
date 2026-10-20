@@ -1,0 +1,125 @@
+import { test, expect, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+
+const save = (page: Page) => page.getByRole("button", { name: "Save", exact: true }).click();
+
+async function signUpAndSetup(page: Page) {
+  await page.goto("/signup");
+  await page.getByLabel("Your name").fill("Day Owner");
+  await page.getByLabel("Shop name").fill("Full Day Net");
+  await page.getByLabel("Email").fill(`day-${randomUUID().slice(0, 8)}@test.local`);
+  await page.getByLabel("Password", { exact: true }).fill("password123");
+  await page.getByLabel("Confirm password").fill("password123");
+  await page.getByRole("button", { name: "Create shop account" }).click();
+  await page.getByRole("button", { name: "Save & continue" }).click(); // Main branch
+  await expect(page.getByRole("heading", { name: /Cash drawer, wallets/ })).toBeVisible();
+  await page.getByLabel("Opening balance in rupees").nth(0).fill("5000"); // drawer
+  await page.getByLabel("Account name").nth(1).fill("PayNearby");
+  await page.getByLabel("Opening balance in rupees").nth(1).fill("10000");
+  await page.getByLabel("Account name").nth(2).fill("SBI UPI");
+  await page.getByRole("button", { name: "Save & continue" }).click();
+  await expect(page.getByRole("heading", { name: "Services you offer" })).toBeVisible();
+  await page.getByRole("button", { name: "Save & continue" }).click();
+  await expect(page.getByRole("heading", { name: "Staff logins" })).toBeVisible();
+  await page.getByRole("button", { name: "Finish setup" }).click();
+  await expect(page.getByRole("heading", { name: "New entry" })).toBeVisible();
+}
+
+test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ page, browser }) => {
+  await signUpAndSetup(page);
+
+  // Xerox ₹50 on udhaar for a new customer
+  await page.getByPlaceholder(/Type a service/).fill("xerox");
+  await page.getByRole("option", { name: /^Xerox/ }).click();
+  await page.getByLabel("Amount (₹)").fill("50");
+  await page.getByRole("radio", { name: "Udhaar" }).click();
+  await page.getByLabel("Customer", { exact: true }).fill("Ramesh");
+  await page.getByRole("button", { name: /Add “Ramesh” as new customer/ }).click();
+  await page.getByLabel("Phone").fill("9876543210");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove customer" })).toBeVisible();
+  await save(page);
+  await expect(page.getByRole("status").filter({ hasText: "saved" })).toBeVisible();
+
+  // Udhaar: Ramesh owes ₹50, pays back ₹20
+  await page.goto("/udhaar");
+  await page.getByRole("button", { name: /Ramesh/ }).click();
+  await expect(page.getByText("Owes you")).toBeVisible();
+  await page.getByLabel("Amount received (₹)").fill("20");
+  await page.getByRole("button", { name: "Save payment" }).click();
+  await expect(page.getByText("₹20.00 received from Ramesh")).toBeVisible();
+  await expect(page.getByText("₹30.00").filter({ visible: true }).first()).toBeVisible(); // panel balance (list hides on phones)
+
+  // Money: expense ₹10, move ₹100 cash → bank, fix PayNearby to ₹9,000
+  await page.goto("/money");
+  await page.getByLabel("Amount (₹)").fill("10");
+  await page.getByLabel("What for? (optional)").fill("tea");
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page.getByText("Expense ₹10.00 saved")).toBeVisible();
+  await page.getByRole("tab", { name: "Move money" }).click();
+  await page.getByLabel("Amount (₹)").fill("100");
+  await page.getByRole("button", { name: "Move money" }).click();
+  await expect(page.getByText(/Moved ₹100.00 from Cash drawer to SBI UPI/)).toBeVisible();
+  await page.getByRole("tab", { name: "Fix a balance" }).click();
+  await page.getByLabel("Account").selectOption({ label: "PayNearby (now ₹10,000.00)" });
+  await page.getByLabel("Real balance now (₹)").fill("9000");
+  await expect(page.getByText("-₹1,000.00")).toBeVisible();
+  await page.getByRole("button", { name: "Save correct balance" }).click();
+  await expect(page.getByText("Balance set to ₹9,000.00")).toBeVisible();
+  // drawer: 5000 + 20 (udhaar paid) − 10 − 100 = 4910
+  await expect(page.getByText("₹4,910.00").first()).toBeVisible();
+
+  // Close day: count exactly what is expected
+  await page.goto("/close");
+  await expect(page.getByText("Should be in drawer")).toBeVisible();
+  await page.getByLabel("Cash you counted (₹)").fill("4910");
+  await expect(page.getByText("Matched ✓")).toBeVisible();
+  await page.getByRole("button", { name: "Close the day" }).click();
+  await expect(page.getByText("Today is closed.")).toBeVisible();
+
+  // Dashboard: profit today = 50 (xerox) − 10 (tea) = 40
+  await page.goto("/dashboard");
+  const totals = page.getByRole("region", { name: "Totals" });
+  await expect(totals.getByText("₹40.00").first()).toBeVisible();
+  await expect(page.getByText(/Udhaar outstanding: ₹30.00/)).toBeVisible();
+  const csv = await page.request.get("/dashboard/export?period=today&branch=all");
+  expect(csv.status()).toBe(200);
+  expect(await csv.text()).toContain("Xerox");
+
+  // Settings: give AEPS a ₹10 charge, add a staff login
+  await page.goto("/settings");
+  await page.getByRole("button", { name: /AEPS withdrawal/ }).click();
+  await page.getByLabel("Charge", { exact: true }).fill("10");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("button", { name: /AEPS withdrawal.*charge ₹10.00/ })).toBeVisible();
+  await page.getByRole("tab", { name: "Staff" }).click();
+  const username = `st${randomUUID().slice(0, 6)}`;
+  await page.getByLabel("Staff name").fill("Suresh");
+  await page.getByLabel("Staff username").fill(username);
+  await page.getByLabel("Staff password").fill("suresh123");
+  await page.getByRole("button", { name: "Add staff" }).click();
+  await expect(page.getByText(`login: ${username}`)).toBeVisible();
+
+  // Staff logs in on another device: no Dashboard/Settings, creates a service the owner must check
+  const staffCtx = await browser.newContext();
+  const staff = await staffCtx.newPage();
+  await staff.goto("/login");
+  await staff.getByLabel("Email or username").fill(username);
+  await staff.getByLabel("Password").fill("suresh123");
+  await staff.getByRole("button", { name: "Log in" }).click();
+  await expect(staff.getByRole("heading", { name: "New entry" })).toBeVisible();
+  await expect(staff.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
+  await staff.goto("/dashboard");
+  await expect(staff.getByRole("heading", { name: "New entry" })).toBeVisible();
+  await staff.getByPlaceholder(/Type a service/).fill("Spiral binding");
+  await staff.getByRole("option", { name: /Create/ }).click();
+  await staff.getByRole("button", { name: "Create & use" }).click();
+  await staff.getByLabel("Amount (₹)").fill("40");
+  await save(staff);
+  await expect(staff.getByRole("status").filter({ hasText: "saved" })).toBeVisible();
+  await staffCtx.close();
+
+  await page.goto("/settings");
+  await expect(page.getByRole("tab", { name: "Services (1 new)" })).toBeVisible();
+  await expect(page.getByText("New · check")).toBeVisible();
+});
