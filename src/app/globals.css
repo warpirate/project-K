@@ -1,1 +1,133 @@
 @import "tailwindcss";
+
+/* Khata register palette: paper, ink, ruled lines; green = money in, red = money out. */
+:root {
+  --paper: #f6f1e7;
+  --paper-raised: #fffcf5;
+  --ink: #1d1b16;
+  --ink-soft: #5c5648;
+  --rule: #e2d9c6;
+  --rule-strong: #cbbfa6;
+  --accent: #0f5c4d;
+  --accent-ink: #f6f1e7;
+  --accent-soft: #dcebe4;
+  --money-in: #0f6b3f;
+  --money-out: #b3261e;
+  --highlight: #e8a33d;
+  --danger-soft: #f8e1dc;
+  --focus: #e8a33d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #15140f;
+    --paper-raised: #1e1c16;
+    --ink: #efe8d8;
+    --ink-soft: #a9a08c;
+    --rule: #2f2c23;
+    --rule-strong: #47422f;
+    --accent: #5fbf9f;
+    --accent-ink: #10130f;
+    --accent-soft: #1d332b;
+    --money-in: #6fcf97;
+    --money-out: #f2877d;
+    --highlight: #e8a33d;
+    --danger-soft: #3a1f1b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #15140f;
+  --paper-raised: #1e1c16;
+  --ink: #efe8d8;
+  --ink-soft: #a9a08c;
+  --rule: #2f2c23;
+  --rule-strong: #47422f;
+  --accent: #5fbf9f;
+  --accent-ink: #10130f;
+  --accent-soft: #1d332b;
+  --money-in: #6fcf97;
+  --money-out: #f2877d;
+  --highlight: #e8a33d;
+  --danger-soft: #3a1f1b;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-in: var(--money-in);
+  --color-out: var(--money-out);
+  --color-highlight: var(--highlight);
+  --color-danger-soft: var(--danger-soft);
+  --font-display: var(--font-young-serif);
+  --font-sans: var(--font-onest);
+  --font-mono: var(--font-plex-mono);
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-onest), sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    linear-gradient(var(--paper), var(--paper)) padding-box,
+    var(--paper);
+}
+
+/* Faint ruled-register lines behind content areas marked .ruled */
+.ruled {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 39px,
+    var(--rule) 39px,
+    var(--rule) 40px
+  );
+}
+
+.money {
+  font-family: var(--font-plex-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(20 18 12 / 0.45);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
