@@ -40,8 +40,8 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await expect(page.getByRole("option", { name: /Create/ })).toHaveCount(0);
   await page.getByRole("option", { name: /Xerox/ }).click();
   await page.getByLabel("Amount (₹)").fill("20");
-  await expect(page.getByText("Collect from customer")).toBeVisible();
-  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(page.getByText("Take from customer")).toBeVisible();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "saved" })).toBeVisible();
   const today = page.locator("section").filter({ has: page.getByRole("heading", { name: "Today" }) });
   await expect(today.getByText("Xerox")).toBeVisible();
@@ -53,16 +53,39 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await expect(page.getByRole("heading", { name: "New service" })).toBeVisible();
   await page.getByRole("button", { name: "Create & use" }).click();
   await page.getByLabel("Amount (₹)").fill("30");
-  await page.getByRole("button", { name: "Save entry" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(today.getByText("Binding")).toBeVisible();
 
   // AEPS withdrawal ₹500 (fee 0 by default) through the wallet
   await page.getByPlaceholder(/Type a service/).fill("aeps");
   await page.getByRole("option", { name: /AEPS withdrawal/ }).click();
-  await page.getByLabel("Amount (₹)").fill("500");
+  await page.getByLabel("Withdrawal amount (₹)").fill("500");
   await expect(page.getByText("Give customer")).toBeVisible();
-  await page.getByRole("button", { name: "Save entry" }).click();
+  await expect(page.getByText("How do you give the money?")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Udhaar" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(today.getByText("AEPS withdrawal")).toBeVisible();
+
+  // UPI to cash: customer sends ₹1000 by UPI, takes cash
+  await page.getByPlaceholder(/Type a service/).fill("phonepe");
+  await page.getByRole("option", { name: /UPI to cash/ }).click();
+  await page.getByLabel("Withdrawal amount (₹)").fill("1000");
+  await expect(page.getByLabel("Money comes into")).toHaveValue(/.+/);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(today.getByText("UPI to cash")).toBeVisible();
+
+  // Recharge ₹299, customer sends ₹500 by UPI, gets ₹201 change
+  await page.getByPlaceholder(/Type a service/).fill("recharge");
+  await page.getByRole("option", { name: /Mobile recharge/ }).click();
+  await page.getByLabel("Recharge / bill amount (₹)").fill("299");
+  await page.getByRole("radio", { name: "UPI" }).click();
+  await page.getByRole("button", { name: "Customer sent extra?" }).click();
+  await page.getByLabel("Customer sent by UPI (₹)").fill("500");
+  await expect(page.getByText("Give back in cash")).toBeVisible();
+  await expect(page.getByText("₹201.00")).toBeVisible();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "give back ₹201.00" })).toBeVisible();
+  await expect(today.getByText(/change given/)).toBeVisible();
 
   // Reverse the xerox entry
   const xeroxRow = today.locator("li").filter({ hasText: "Xerox" }).first();

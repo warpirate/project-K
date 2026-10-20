@@ -75,8 +75,11 @@ export function ServicesStep({ existingNames }: { existingNames: string[] }) {
     <Card>
       <h2 className="font-display text-2xl">Services you offer</h2>
       <p className="mt-1 text-ink-soft">
-        Untick what you don’t do. Fill fees and commissions now or later; staff can still change the fee on each entry.
-        Anything missing can be added from the entry screen too.
+        Untick what you don’t do. Charges are optional: fill them now, later, or never.
+        <br />
+        <strong className="font-medium text-ink">Your charge</strong> = what you take from the customer.{" "}
+        <strong className="font-medium text-ink">Commission</strong> = what the portal pays you. Missing services can be
+        added from the entry screen any time.
       </p>
       {error ? <div className="mt-4"><Banner>{error}</Banner></div> : null}
       <ul className="mt-6 divide-y divide-rule">
@@ -108,19 +111,19 @@ export function ServicesStep({ existingNames }: { existingNames: string[] }) {
                   </label>
                   {uses.fee ? (
                     <label className="flex flex-col gap-1 text-xs text-ink-soft">
-                      Your fee from customer
+                      Your charge (optional)
                       <RuleInput id={`fee-${i}`} label="Fee" value={r.fee} onChange={(v) => update(i, { fee: v })} />
                     </label>
                   ) : null}
                   {uses.commission ? (
                     <label className="flex flex-col gap-1 text-xs text-ink-soft">
-                      Portal commission
+                      Portal commission to you (optional)
                       <RuleInput id={`com-${i}`} label="Commission" value={r.commission} onChange={(v) => update(i, { commission: v })} />
                     </label>
                   ) : null}
                   {uses.portalCost ? (
                     <label className="flex flex-col gap-1 text-xs text-ink-soft">
-                      Portal charges you
+                      Portal fee from wallet (optional)
                       <RuleInput
                         id={`cost-${i}`}
                         label="Portal cost"

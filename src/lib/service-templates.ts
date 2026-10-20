@@ -9,6 +9,12 @@ export interface ServiceTemplate {
 
 export const SERVICE_TEMPLATES: ServiceTemplate[] = [
   { name: "AEPS withdrawal", flow: "cash_out", category: "banking", aliases: ["aeps", "withdraw", "cash withdrawal"] },
+  {
+    name: "UPI to cash",
+    flow: "cash_out",
+    category: "upi_cash",
+    aliases: ["upi cash", "cash for upi", "phonepe", "gpay", "google pay", "paytm", "scan and cash"],
+  },
   { name: "Money transfer", flow: "cash_in", category: "banking", aliases: ["dmt", "transfer", "send money"] },
   { name: "Cash deposit", flow: "cash_in", category: "banking", aliases: ["deposit"] },
   { name: "Mobile recharge", flow: "pay_through", category: "recharge", aliases: ["recharge", "jio", "airtel", "vi", "bsnl"] },

@@ -4,6 +4,7 @@ export interface ServiceOption {
   id: string;
   name: string;
   flow: Flow;
+  category: string;
   aliases: string[];
   fee_rule: Rule | null;
   commission_rule: Rule | null;

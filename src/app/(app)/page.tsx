@@ -19,13 +19,17 @@ const timeIST = (iso: string) =>
 
 type Line = { amount: number; customer_id: string | null; accounts: { name: string; type: string } | null };
 
-/** "Cash", "UPI · SBI", "Udhaar ₹51.00" — how the customer side was settled. */
-function paymentSummary(lines: Line[], walletName: string | undefined): string {
-  return lines
-    .filter((l) => (l.customer_id ? true : l.accounts && l.accounts.name !== walletName))
-    .map((l) => (l.customer_id ? "Udhaar" : l.accounts!.type === "cash" ? "Cash" : l.accounts!.name))
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .join(" + ");
+/**
+ * How the customer side was settled: "Cash", "SBI UPI", "Udhaar", "Cash + Udhaar".
+ * Customer-side lines are money out for withdrawals (shop gives) and money in otherwise;
+ * the portal/bank line moves the other way, and a negative cash line on a payment is change given back.
+ */
+function paymentSummary(lines: Line[], flow: Flow): string {
+  const customerSide = lines.filter((l) => (flow === "cash_out" ? l.amount < 0 : l.amount > 0 || l.customer_id));
+  const labels = customerSide.map((l) => (l.customer_id ? "Udhaar" : l.accounts!.type === "cash" ? "Cash" : l.accounts!.name));
+  const hasChange = flow !== "cash_out" && lines.some((l) => !l.customer_id && l.amount < 0 && l.accounts?.type === "cash");
+  const unique = labels.filter((v, i, a) => a.indexOf(v) === i).join(" + ");
+  return hasChange ? `${unique} (change given)` : unique;
 }
 
 export default async function HomePage() {
@@ -36,7 +40,7 @@ export default async function HomePage() {
   const supabase = await createClient();
 
   const [services, accounts, customers, txns] = await Promise.all([
-    supabase.from("services").select("id, name, flow, aliases, fee_rule, commission_rule, portal_cost_rule").eq("active", true).order("name"),
+    supabase.from("services").select("id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule").eq("active", true).order("name"),
     supabase.from("accounts").select("id, name, type").eq("branch_id", ctx.branchId).eq("active", true).order("created_at"),
     supabase.from("customers").select("id, name, phone").order("name").limit(2000),
     supabase
@@ -58,9 +62,7 @@ export default async function HomePage() {
 
   const rows: TodayRow[] = all.map((t) => {
     const lines = (t.ledger_lines ?? []) as Line[];
-    // The wallet line is the one the service posts against the portal; show only how the customer paid.
     const flow = t.services?.flow as Flow | undefined;
-    const walletName = flow && flow !== "counter_sale" ? lines.find((l) => l.accounts?.type === "wallet")?.accounts?.name : undefined;
     return {
       id: t.id,
       time: timeIST(t.created_at),
@@ -68,7 +70,7 @@ export default async function HomePage() {
       kind: flow ? flowLabel(flow) : t.kind,
       amount: Number(t.amount),
       earning: Number(t.earning),
-      payment: t.kind === "service" ? paymentSummary(lines, walletName) : "",
+      payment: t.kind === "service" && flow ? paymentSummary(lines, flow) : "",
       customer: t.customers?.name ?? null,
       by: nameOf.get(t.created_by) ?? null,
       note: t.note,

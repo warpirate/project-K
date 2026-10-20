@@ -179,3 +179,35 @@ describe("post_service validation", () => {
     expect(error?.message).toMatch(/wallet account required/);
   });
 });
+
+describe("change given back", () => {
+  it("customer sends more by UPI and takes change in cash", async () => {
+    await postService({
+      p_service_id: f.services.recharge,
+      p_amount: 29900,
+      p_wallet_account_id: f.wallet1,
+      p_payments: [
+        { account_id: f.bank1, amount: 50000 },
+        { account_id: f.cash1, amount: -20100 },
+      ],
+    });
+    expect(await balanceOf(f.staff, f.bank1)).toBe(50000);
+    expect(await balanceOf(f.staff, f.cash1)).toBe(-20100);
+  });
+
+  it("udhaar parts must still be positive", async () => {
+    const customer = await insertId(f.staff, "customers", { shop_id: f.shopId, name: "Kiran", phone: "9000000009" });
+    const { error } = await f.staff.rpc("post_service", {
+      p_client_id: randomUUID(),
+      p_branch_id: f.branch1,
+      p_service_id: f.services.xerox,
+      p_amount: 2000,
+      p_customer_id: customer,
+      p_payments: [
+        { account_id: f.cash1, amount: 3000 },
+        { udhaar: true, amount: -1000 },
+      ],
+    });
+    expect(error?.message).toMatch(/udhaar amount must be positive/);
+  });
+});

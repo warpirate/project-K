@@ -60,7 +60,7 @@ export function CreateServiceDialog({
     if (!draftName.trim()) return setError("Enter a name");
     setSaving(true);
     const supabase = createClient();
-    const cols = "id, name, flow, aliases, fee_rule, commission_rule, portal_cost_rule";
+    const cols = "id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule";
     const { data, error: err } = await supabase
       .from("services")
       .insert({
@@ -102,7 +102,7 @@ export function CreateServiceDialog({
         <div>
           <h2 className="font-display text-2xl">New service</h2>
           {!isOwner ? (
-            <p className="mt-1 text-sm text-ink-soft">The owner will be asked to check its fee and commission.</p>
+            <p className="mt-1 text-sm text-ink-soft">Only the name is needed. The owner can check the charges later.</p>
           ) : null}
         </div>
         {error ? <Banner>{error}</Banner> : null}
@@ -121,17 +121,17 @@ export function CreateServiceDialog({
         {uses.fee || uses.commission || uses.portalCost ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {uses.fee ? (
-              <Field label="Your fee" htmlFor="svc-fee">
+              <Field label="Your charge (optional)" htmlFor="svc-fee" hint="What you take from the customer">
                 <RuleInput id="svc-fee" label="Fee" value={fee} onChange={setFee} />
               </Field>
             ) : null}
             {uses.commission ? (
-              <Field label="Portal commission" htmlFor="svc-com">
+              <Field label="Portal commission (optional)" htmlFor="svc-com" hint="What the portal pays you">
                 <RuleInput id="svc-com" label="Commission" value={commission} onChange={setCommission} />
               </Field>
             ) : null}
             {uses.portalCost ? (
-              <Field label="Portal charges you" htmlFor="svc-cost">
+              <Field label="Portal fee (optional)" htmlFor="svc-cost" hint="Cut from your wallet per application">
                 <RuleInput id="svc-cost" label="Portal cost" allowPercent={false} value={portalCost} onChange={setPortalCost} />
               </Field>
             ) : null}

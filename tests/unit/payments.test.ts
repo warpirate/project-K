@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPayments } from "@/lib/payments";
+import { buildPayments, changeDue } from "@/lib/payments";
 
 const accts = { cashId: "cash", upiId: "bank" };
 
@@ -42,7 +42,7 @@ describe("buildPayments", () => {
     });
     expect(buildPayments({ mode: "split", total: 5000, parts, ...accts, flow: "cash_in", hasCustomer: true })).toEqual({
       ok: false,
-      error: "Split adds up to ₹50.50, needs ₹50.00",
+      error: "Mixed adds up to ₹50.50, needs ₹50.00",
     });
   });
   it("needs the account to exist", () => {
@@ -50,5 +50,45 @@ describe("buildPayments", () => {
       ok: false,
       error: "This branch has no bank/UPI account. Add one in setup.",
     });
+  });
+});
+
+describe("customer gave more (change)", () => {
+  it("UPI overpay records the UPI amount and the cash given back", () => {
+    expect(
+      buildPayments({ mode: "upi", total: 29900, received: 50000, ...accts, flow: "pay_through", hasCustomer: false }),
+    ).toEqual({
+      ok: true,
+      payments: [
+        { account_id: "bank", amount: 50000 },
+        { account_id: "cash", amount: -20100 },
+      ],
+    });
+  });
+  it("cash overpay only needs the net amount (change comes from the same drawer)", () => {
+    expect(buildPayments({ mode: "cash", total: 29900, received: 50000, ...accts, flow: "pay_through", hasCustomer: false })).toEqual({
+      ok: true,
+      payments: [{ account_id: "cash", amount: 29900 }],
+    });
+  });
+  it("received equal or empty behaves as before", () => {
+    expect(buildPayments({ mode: "upi", total: 100, received: 100, ...accts, flow: "cash_in", hasCustomer: false })).toEqual({
+      ok: true,
+      payments: [{ account_id: "bank", amount: 100 }],
+    });
+  });
+  it("received less than needed is an error with a hint", () => {
+    expect(buildPayments({ mode: "cash", total: 29900, received: 20000, ...accts, flow: "pay_through", hasCustomer: false })).toEqual({
+      ok: false,
+      error: "Customer gave ₹200.00, needs ₹299.00. Use Mixed or Udhaar for the rest.",
+    });
+  });
+});
+
+describe("changeDue", () => {
+  it("is the extra the customer gave, never negative", () => {
+    expect(changeDue(29900, 50000)).toBe(20100);
+    expect(changeDue(29900, 20000)).toBe(0);
+    expect(changeDue(29900, undefined)).toBe(0);
   });
 });
