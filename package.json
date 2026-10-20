@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "db:push": "node scripts/with-db-env.mjs supabase db push --linked",
+    "db:push": "node scripts/with-db-env.mjs supabase db push --linked --yes",
     "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "test:db": "vitest run",
     "typecheck": "tsc --noEmit"
