@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import { getAppContext } from "@/lib/session";
 import { logOut } from "@/app/login/actions";
 import { BranchSwitcher } from "./branch-switcher";
+import { Nav } from "./nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getAppContext();
@@ -35,8 +36,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </button>
           </form>
         </div>
+        <Nav isOwner={ctx.isOwner} />
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 pt-6 pb-28 md:pb-10">{children}</main>
     </div>
   );
 }

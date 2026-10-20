@@ -448,7 +448,7 @@ export function EntryForm({
 
             {error ? <Banner>{error}</Banner> : null}
 
-            <div className="sticky bottom-0 -mx-5 -mb-5 flex gap-3 rounded-b-2xl border-t border-rule bg-raised/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
+            <div className="sticky bottom-[calc(60px+env(safe-area-inset-bottom))] md:bottom-0 -mx-5 -mb-5 flex gap-3 rounded-b-2xl border-t border-rule bg-raised/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
               <Button type="button" variant="secondary" onClick={reset}>
                 Clear
               </Button>
