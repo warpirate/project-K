@@ -41,3 +41,16 @@ export function previewEntry(flow: Flow, amount: number, fee: number, commission
       return { customerTotal: amount, shopPays: false, earning: amount };
   }
 }
+
+export type RuleMode = "none" | "fixed" | "percent";
+
+/** Form input → stored rule. Fixed is rupees (→ paise), percent is % (→ basis points). Empty/zero → null. */
+export function ruleFromInput(mode: RuleMode, value: string): Rule | null {
+  if (mode === "none" || value.trim() === "") return null;
+  const n = Number(value.replace(/,/g, "").trim());
+  if (!Number.isFinite(n) || n < 0) throw new Error("Enter a valid number");
+  if (n === 0) return null;
+  if (mode === "fixed") return { type: "fixed", value: Math.round(n * 100) };
+  if (n > 100) throw new Error("Percent must be 100 or less");
+  return { type: "percent", bps: Math.round(n * 100) };
+}

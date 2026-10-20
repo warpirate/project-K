@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcRule, previewEntry } from "@/lib/rules";
+import { calcRule, previewEntry, ruleFromInput } from "@/lib/rules";
 
 const slab = { type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, value: 2000 }] } as const;
 
@@ -29,5 +29,22 @@ describe("previewEntry", () => {
   });
   it("counter_sale", () => {
     expect(previewEntry("counter_sale", 2000, 0, 0, 0)).toEqual({ customerTotal: 2000, shopPays: false, earning: 2000 });
+  });
+});
+
+describe("ruleFromInput", () => {
+  it("converts rupees and percent into stored rules", () => {
+    expect(ruleFromInput("fixed", "20")).toEqual({ type: "fixed", value: 2000 });
+    expect(ruleFromInput("percent", "0.25")).toEqual({ type: "percent", bps: 25 });
+    expect(ruleFromInput("percent", "1")).toEqual({ type: "percent", bps: 100 });
+  });
+  it("treats empty or zero as no rule", () => {
+    expect(ruleFromInput("fixed", "")).toBeNull();
+    expect(ruleFromInput("fixed", "0")).toBeNull();
+    expect(ruleFromInput("none", "5")).toBeNull();
+  });
+  it("rejects invalid numbers", () => {
+    expect(() => ruleFromInput("fixed", "abc")).toThrow();
+    expect(() => ruleFromInput("percent", "101")).toThrow();
   });
 });
