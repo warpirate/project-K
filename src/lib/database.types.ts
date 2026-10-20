@@ -616,6 +616,30 @@ export type Database = {
         }
         Returns: string
       }
+      report_groups: {
+        Args: {
+          p_branch?: string
+          p_from: string
+          p_group: string
+          p_to: string
+        }
+        Returns: {
+          entries: number
+          key: string
+          label: string
+          profit: number
+        }[]
+      }
+      report_totals: {
+        Args: { p_branch?: string; p_from: string; p_to: string }
+        Returns: {
+          charges: number
+          commission: number
+          entries: number
+          expenses: number
+          profit: number
+        }[]
+      }
       reverse_transaction: {
         Args: {
           p_client_id: string
