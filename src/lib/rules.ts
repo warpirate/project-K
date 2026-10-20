@@ -1,3 +1,5 @@
+import { formatINR } from "@/lib/money";
+
 export type Rule =
   | { type: "fixed"; value: number }
   | { type: "percent"; bps: number }
@@ -53,4 +55,19 @@ export function ruleFromInput(mode: RuleMode, value: string): Rule | null {
   if (mode === "fixed") return { type: "fixed", value: Math.round(n * 100) };
   if (n > 100) throw new Error("Percent must be 100 or less");
   return { type: "percent", bps: Math.round(n * 100) };
+}
+
+/** Stored rule → form values (inverse of ruleFromInput). Slabs can't be edited in the simple form; they show as empty. */
+export function ruleToInput(rule: Rule | null | undefined): { mode: "fixed" | "percent"; value: string } {
+  if (!rule || rule.type === "slab") return { mode: "fixed", value: "" };
+  const trim = (n: number) => String(Number(n.toFixed(2)));
+  return rule.type === "fixed" ? { mode: "fixed", value: trim(rule.value / 100) } : { mode: "percent", value: trim(rule.bps / 100) };
+}
+
+/** Short plain-words description of a rule. */
+export function describeRule(rule: Rule | null | undefined): string {
+  if (!rule) return "none";
+  if (rule.type === "fixed") return formatINR(rule.value);
+  if (rule.type === "percent") return `${Number((rule.bps / 100).toFixed(2))}%`;
+  return `by amount (${rule.slabs.length} slabs)`;
 }

@@ -28,10 +28,14 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, role, shop_id, branch_id")
+    .select("name, role, shop_id, branch_id, active")
     .eq("user_id", auth.user.id)
     .maybeSingle();
   if (!profile) redirect("/signup?step=shop");
+  if (!profile.active) {
+    await supabase.auth.signOut();
+    redirect("/login?off=1");
+  }
 
   const [{ data: shop }, { data: branches }] = await Promise.all([
     supabase.from("shops").select("name").eq("id", profile.shop_id).single(),

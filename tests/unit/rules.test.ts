@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcRule, previewEntry, ruleFromInput } from "@/lib/rules";
+import { calcRule, describeRule, previewEntry, ruleFromInput, ruleToInput } from "@/lib/rules";
 
 const slab = { type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, value: 2000 }] } as const;
 
@@ -46,5 +46,29 @@ describe("ruleFromInput", () => {
   it("rejects invalid numbers", () => {
     expect(() => ruleFromInput("fixed", "abc")).toThrow();
     expect(() => ruleFromInput("percent", "101")).toThrow();
+  });
+});
+
+describe("ruleToInput", () => {
+  it("turns stored rules back into form values", () => {
+    expect(ruleToInput({ type: "fixed", value: 2000 })).toEqual({ mode: "fixed", value: "20" });
+    expect(ruleToInput({ type: "fixed", value: 2050 })).toEqual({ mode: "fixed", value: "20.5" });
+    expect(ruleToInput({ type: "percent", bps: 25 })).toEqual({ mode: "percent", value: "0.25" });
+    expect(ruleToInput(null)).toEqual({ mode: "fixed", value: "" });
+  });
+  it("round-trips through ruleFromInput", () => {
+    for (const r of [{ type: "fixed", value: 1550 }, { type: "percent", bps: 150 }] as const) {
+      const d = ruleToInput(r);
+      expect(ruleFromInput(d.mode, d.value)).toEqual(r);
+    }
+  });
+});
+
+describe("describeRule", () => {
+  it("says the rule in plain words", () => {
+    expect(describeRule({ type: "fixed", value: 2000 })).toBe("₹20.00");
+    expect(describeRule({ type: "percent", bps: 25 })).toBe("0.25%");
+    expect(describeRule({ type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, value: 2000 }] })).toBe("by amount (2 slabs)");
+    expect(describeRule(null)).toBe("none");
   });
 });
