@@ -3,12 +3,12 @@
 import { Command } from "cmdk";
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import { findExact, searchServices } from "@/lib/services";
+import { searchServices, shouldOfferCreate } from "@/lib/services";
 import { flowLabel } from "@/lib/flows";
 import type { ServiceOption } from "./types";
 
 /**
- * Type to find a service. If nothing with that exact name exists, the last option offers to create it.
+ * Type to find a service. When no existing name starts with what was typed, the last option offers to create it.
  */
 export function ServicePicker({
   services,
@@ -23,7 +23,7 @@ export function ServicePicker({
 }) {
   const [query, setQuery] = useState("");
   const matches = useMemo(() => searchServices(services, query).slice(0, 8), [services, query]);
-  const canCreate = query.trim() !== "" && !findExact(services, query);
+  const canCreate = shouldOfferCreate(services, query);
 
   return (
     <Command shouldFilter={false} loop label="Service" className="relative">

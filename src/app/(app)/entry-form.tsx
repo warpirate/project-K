@@ -283,7 +283,7 @@ export function EntryForm({
             ) : null}
 
             {preview ? (
-              <div className="ruled rounded-xl border border-rule bg-paper px-4 py-3" aria-live="polite">
+              <div className="rounded-xl border border-rule bg-paper px-4 py-3" aria-live="polite">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-ink-soft">{preview.shopPays ? "Give customer" : "Collect from customer"}</span>
                   <span className={cx("money text-2xl font-semibold", preview.shopPays ? "text-out" : "text-in")}>
@@ -385,7 +385,7 @@ export function EntryForm({
 
             {error ? <Banner>{error}</Banner> : null}
 
-            <div className="sticky bottom-3 flex gap-3">
+            <div className="sticky bottom-0 -mx-5 -mb-5 flex gap-3 rounded-b-2xl border-t border-rule bg-raised/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
               <Button type="button" variant="secondary" onClick={reset}>
                 Clear
               </Button>

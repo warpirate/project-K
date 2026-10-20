@@ -90,6 +90,7 @@ export function TodayList({ rows, totalEarning }: { rows: TodayRow[]; totalEarni
                     <button
                       type="button"
                       onClick={() => open(r)}
+                      aria-label={`Reverse ${r.title} ${formatINR(r.amount)}`}
                       className="mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-ink-soft hover:bg-paper hover:text-out"
                     >
                       <Undo2 size={13} /> Reverse

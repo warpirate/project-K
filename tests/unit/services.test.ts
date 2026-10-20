@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeName, searchServices, findExact } from "@/lib/services";
+import { normalizeName, searchServices, findExact, shouldOfferCreate } from "@/lib/services";
 
 const list = [
   { id: "1", name: "Xerox", aliases: ["zerox", "photocopy"] },
@@ -26,5 +26,19 @@ describe("services search", () => {
   it("finds exact name ignoring case/spaces", () => {
     expect(findExact(list, " xerox ")?.id).toBe("1");
     expect(findExact(list, "xer")).toBeUndefined();
+  });
+});
+
+describe("shouldOfferCreate", () => {
+  it("hides create while the query is the start of an existing name", () => {
+    expect(shouldOfferCreate(list, "xer")).toBe(false);
+    expect(shouldOfferCreate(list, "Xerox")).toBe(false);
+  });
+  it("offers create for new names, even if they appear inside other names", () => {
+    expect(shouldOfferCreate(list, "Binding")).toBe(true);
+    expect(shouldOfferCreate([{ id: "a", name: "Colour print", aliases: [] }], "print")).toBe(true);
+  });
+  it("never offers create for an empty query", () => {
+    expect(shouldOfferCreate(list, "  ")).toBe(false);
   });
 });

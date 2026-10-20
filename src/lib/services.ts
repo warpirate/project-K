@@ -26,3 +26,9 @@ export function findExact<T extends Searchable>(list: T[], name: string): T | un
   const n = normalizeName(name);
   return list.find((s) => normalizeName(s.name) === n);
 }
+
+/** Offer "+ Create" unless the query is empty or is the beginning of an existing service name. */
+export function shouldOfferCreate<T extends Searchable>(list: T[], query: string): boolean {
+  const q = normalizeName(query);
+  return q !== "" && !list.some((s) => normalizeName(s.name).startsWith(q));
+}

@@ -35,7 +35,7 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
 
   const [{ data: shop }, { data: branches }] = await Promise.all([
     supabase.from("shops").select("name").eq("id", profile.shop_id).single(),
-    supabase.from("branches").select("id, name").order("name"),
+    supabase.from("branches").select("id, name").order("created_at"),
   ]);
 
   const isOwner = profile.role === "owner";
