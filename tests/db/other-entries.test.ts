@@ -93,3 +93,17 @@ describe("post_opening_balance", () => {
     expect(error?.message).toMatch(/owner only/);
   });
 });
+
+describe("customer dues across branches", () => {
+  it("staff sees udhaar a customer took in another branch", async () => {
+    const customer = await insertId(f.owner, "customers", { shop_id: f.shopId, name: "Gopal", phone: "9000000003" });
+    await rpc(f.owner, "post_service", {
+      p_branch_id: f.branch2,
+      p_service_id: f.services.xerox,
+      p_amount: 3000,
+      p_customer_id: customer,
+      p_payments: [{ udhaar: true, amount: 3000 }],
+    });
+    expect(await dueOf(f.staff, customer)).toBe(3000);
+  });
+});

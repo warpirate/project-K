@@ -2003,3 +2003,14 @@ git commit -m "chore(db): generate TypeScript types from schema"
 git push -u origin main
 ```
 Expected: push succeeds; GitHub repo shows the spec, plan, migrations and tests.
+
+---
+
+## Execution notes (2026-10-20)
+
+- **No Docker.** Tests run against the online `project-k-dev` Supabase project (org: warpirate's Org, region ap-south-1). Keys + DB password live in git-ignored `.env.test`. Migrations applied with `npm run db:push` (incremental, no reset).
+- `supabase/config.toml` auth settings mirror the dev project; `sign_in_sign_ups` raised to 1000 for the test suite (dev only — never push this config to prod).
+- TypeScript 7 removed `baseUrl`; `tsconfig.json` uses `"@/*": ["./src/*"]`.
+- Added `20261019000310_rule_validation_nulls.sql`: rules with a missing key (e.g. `{"type":"percent"}`) were accepted because a NULL check passes.
+- Added `20261019000800_customer_dues_invoker.sql`: replaced the security-definer `customer_dues` view (Supabase advisor ERROR) with a `security_invoker` view; customer ledger lines are readable shop-wide, account lines stay branch-only. New test: staff sees udhaar taken in another branch.
+- Final: 7 files, 54 tests passing; `db lint` clean; advisors show only intended warnings (authenticated users may call posting functions) and "leaked password protection" (enable on prod).
