@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, CircleDot, Undo2 } from "lucide-react";
 import { Banner, Button, Card, Input, cx } from "@/components/ui";
-import { FLOW_ICON, IconTile, KIND_ICON } from "@/components/icons";
+import { IconTile, KIND_ICON, ServiceGlyph } from "@/components/icons";
 import type { Flow } from "@/lib/rules";
 import { formatINR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
@@ -92,7 +92,7 @@ export function TodayList({ rows, totalEarning }: { rows: TodayRow[]; totalEarni
 
   const renderRow = (r: TodayRow) => {
     const struck = !!r.reversedBy;
-    const icon = r.flow ? FLOW_ICON[r.flow] : (KIND_ICON[r.entryKind] ?? CircleDot);
+    const icon = KIND_ICON[r.entryKind] ?? CircleDot;
     const tone =
       r.entryKind === "reversal" || struck
         ? "plain"
@@ -105,7 +105,7 @@ export function TodayList({ rows, totalEarning }: { rows: TodayRow[]; totalEarni
     const sub = [r.time, r.payment, r.customer, manyPeople ? r.by : null, !r.reversalOf ? r.note : null].filter(Boolean).join(" · ");
     return (
       <li key={r.id} className={cx("flex items-center gap-3 px-4 py-2.5", r.reversalOf && "bg-danger-soft/40")}>
-        <IconTile icon={icon} tone={tone} size="sm" />
+        {r.flow && !r.reversalOf ? <ServiceGlyph name={r.title} flow={r.flow} size="sm" /> : <IconTile icon={icon} tone={tone} size="sm" />}
         <div className="min-w-0 flex-1">
           <p className={cx("truncate font-medium", struck && "text-ink-soft line-through")}>{r.title}</p>
           <p className="truncate text-sm text-ink-soft">{sub}</p>

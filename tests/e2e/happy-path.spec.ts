@@ -35,7 +35,7 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
 
   // New entry: Xerox ₹20 cash
   await expect(page.getByRole("heading", { name: "New entry" })).toBeVisible();
-  await page.getByPlaceholder(/Type a service/).fill("xer");
+  await page.getByPlaceholder(/Search a service/).fill("xer");
   await expect(page.getByRole("option", { name: /Xerox/ })).toBeVisible();
   await expect(page.getByRole("option", { name: /Create/ })).toHaveCount(0);
   await page.getByRole("option", { name: /Xerox/ }).click();
@@ -48,7 +48,7 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await expect(today.getByText("₹20.00").first()).toBeVisible();
 
   // Create a new service from the picker and use it
-  await page.getByPlaceholder(/Type a service/).fill("Binding");
+  await page.getByPlaceholder(/Search a service/).fill("Binding");
   await page.getByRole("option", { name: /Create/ }).click();
   await expect(page.getByRole("heading", { name: "New service" })).toBeVisible();
   await page.getByRole("button", { name: "Create & use" }).click();
@@ -57,7 +57,7 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await expect(today.getByText("Binding")).toBeVisible();
 
   // AEPS withdrawal ₹500 (fee 0 by default) through the wallet
-  await page.getByPlaceholder(/Type a service/).fill("aeps");
+  await page.getByPlaceholder(/Search a service/).fill("aeps");
   await page.getByRole("option", { name: /AEPS withdrawal/ }).click();
   await page.getByLabel("Withdrawal amount (₹)").fill("500");
   await expect(page.getByText("Give customer")).toBeVisible();
@@ -67,7 +67,7 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await expect(today.getByText("AEPS withdrawal")).toBeVisible();
 
   // UPI to cash: customer sends ₹1000 by UPI, takes cash
-  await page.getByPlaceholder(/Type a service/).fill("phonepe");
+  await page.getByPlaceholder(/Search a service/).fill("phonepe");
   await page.getByRole("option", { name: /UPI to cash/ }).click();
   await page.getByLabel("Withdrawal amount (₹)").fill("1000");
   await expect(page.getByLabel("Money comes into")).toHaveValue(/.+/);
@@ -75,7 +75,7 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await expect(today.getByText("UPI to cash")).toBeVisible();
 
   // Recharge ₹299, customer sends ₹500 by UPI, gets ₹201 change
-  await page.getByPlaceholder(/Type a service/).fill("recharge");
+  await page.getByPlaceholder(/Search a service/).fill("recharge");
   await page.getByRole("option", { name: /Mobile recharge/ }).click();
   await page.getByLabel("Recharge / bill amount (₹)").fill("299");
   await page.getByRole("radio", { name: "SBI UPI" }).click(); // each bank/UPI account is its own button

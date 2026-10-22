@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Banknote, BookUser, Check, Plus, Smartphone, Split, Trash2 } from "lucide-react";
-import { FLOW_ICON, IconTile } from "@/components/icons";
+import { ServiceGlyph } from "@/components/icons";
 import { Banner, Button, Card, Field, Input, Select, cx } from "@/components/ui";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import { calcRule, previewEntry } from "@/lib/rules";
@@ -189,7 +189,7 @@ export function EntryForm({
     setNote("");
     setShowNote(false);
     setClientId(crypto.randomUUID());
-    requestAnimationFrame(() => pickerRef.current?.focus());
+    // The service grid comes back and focuses its search box itself (desktop only).
   };
 
   const save = async () => {
@@ -267,7 +267,7 @@ export function EntryForm({
         {service && copy ? (
           <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-accent bg-accent-soft px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
-              <IconTile icon={FLOW_ICON[service.flow]} tone="accent" />
+              <ServiceGlyph name={service.name} flow={service.flow} />
               <div className="min-w-0">
                 <p className="truncate text-lg font-semibold">{service.name}</p>
                 <p className="text-sm text-ink-soft">{flowLabel(service.flow)}</p>

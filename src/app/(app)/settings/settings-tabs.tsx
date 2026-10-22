@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ListChecks, Plus, Store, Users, Wallet } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Select, Tabs, cx } from "@/components/ui";
-import { ACCOUNT_ICON, FLOW_ICON, IconTile } from "@/components/icons";
+import { ACCOUNT_ICON, IconTile, ServiceGlyph } from "@/components/icons";
 import { allPayButtons, branchPayButtons, defaultPayKey } from "@/lib/pay-buttons";
 import { RuleInput, type RuleDraft } from "@/components/rule-input";
 import { FLOWS, flowLabel, flowUses } from "@/lib/flows";
@@ -87,7 +87,7 @@ function ServicesSettings({ services }: { services: ServiceRow[] }) {
               aria-expanded={open === s.id}
               className="flex min-h-14 w-full items-center gap-3 px-5 py-2 text-left hover:bg-paper"
             >
-              <IconTile icon={FLOW_ICON[s.flow]} size="sm" />
+              <ServiceGlyph name={s.name} flow={s.flow} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className={cx("block font-medium", !s.active && "text-ink-soft line-through")}>{s.name}</span>
                 <span className="block text-sm text-ink-soft">

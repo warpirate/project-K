@@ -37,7 +37,7 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await page.goto("/");
 
   // Xerox ₹50 on udhaar for a new customer
-  await page.getByPlaceholder(/Type a service/).fill("xerox");
+  await page.getByPlaceholder(/Search a service/).fill("xerox");
   await page.getByRole("option", { name: /^Xerox/ }).click();
   await page.getByLabel("Amount (₹)").fill("50");
   await page.getByRole("radio", { name: "Udhaar" }).click();
@@ -127,7 +127,7 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await expect(page.getByRole("button", { name: /AEPS withdrawal.*up to ₹1,000.00: ₹10.00, above: 1%/ })).toBeVisible();
   // On New entry the charge is already worked out, and can be changed for this one entry
   await page.goto("/");
-  await page.getByPlaceholder(/Type a service/).fill("aeps");
+  await page.getByPlaceholder(/Search a service/).fill("aeps");
   await page.getByRole("option", { name: /AEPS withdrawal/ }).click();
   await page.getByLabel("Withdrawal amount (₹)").fill("5000");
   await expect(page.getByLabel("Your charge")).toHaveValue("50");
@@ -155,7 +155,7 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await expect(staff.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
   await staff.goto("/dashboard");
   await expect(staff.getByRole("heading", { name: "New entry" })).toBeVisible();
-  await staff.getByPlaceholder(/Type a service/).fill("Spiral binding");
+  await staff.getByPlaceholder(/Search a service/).fill("Spiral binding");
   await staff.getByRole("option", { name: /Create/ }).click();
   await staff.getByRole("button", { name: "Create & use" }).click();
   await staff.getByLabel("Amount (₹)").fill("40");
