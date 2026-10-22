@@ -87,20 +87,26 @@ export type Database = {
       branches: {
         Row: {
           created_at: string
+          default_pay: string | null
           id: string
           name: string
+          pay_buttons: string[] | null
           shop_id: string
         }
         Insert: {
           created_at?: string
+          default_pay?: string | null
           id?: string
           name: string
+          pay_buttons?: string[] | null
           shop_id: string
         }
         Update: {
           created_at?: string
+          default_pay?: string | null
           id?: string
           name?: string
+          pay_buttons?: string[] | null
           shop_id?: string
         }
         Relationships: [

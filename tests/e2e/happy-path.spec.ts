@@ -78,7 +78,7 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await page.getByPlaceholder(/Type a service/).fill("recharge");
   await page.getByRole("option", { name: /Mobile recharge/ }).click();
   await page.getByLabel("Recharge / bill amount (₹)").fill("299");
-  await page.getByRole("radio", { name: "UPI" }).click();
+  await page.getByRole("radio", { name: "SBI UPI" }).click(); // each bank/UPI account is its own button
   await page.getByRole("button", { name: "Customer sent extra?" }).click();
   await page.getByLabel("Customer sent by UPI (₹)").fill("500");
   await expect(page.getByText("Give back in cash")).toBeVisible();

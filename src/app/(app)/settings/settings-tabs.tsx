@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ListChecks, Plus, Store, Users, Wallet } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Select, Tabs, cx } from "@/components/ui";
 import { ACCOUNT_ICON, FLOW_ICON, IconTile } from "@/components/icons";
+import { allPayButtons, branchPayButtons, defaultPayKey } from "@/lib/pay-buttons";
 import { RuleInput, type RuleDraft } from "@/components/rule-input";
 import { FLOWS, flowLabel, flowUses } from "@/lib/flows";
-import { describeRule, ruleFromInput, ruleToInput, type Flow } from "@/lib/rules";
+import { describeRule, ruleFromDraft, ruleFromInput, ruleToDraft, ruleToInput, type Flow } from "@/lib/rules";
 import { createClient } from "@/lib/supabase/client";
 import { useSubmit } from "@/lib/use-submit";
 import type { Json } from "@/lib/database.types";
@@ -17,6 +18,7 @@ import type { AccountRow, ServiceRow, StaffRow } from "./page";
 
 type Tab = "services" | "accounts" | "branches" | "staff";
 type Branch = { id: string; name: string };
+export type PayConfig = Record<string, { buttons: string[] | null; default: string | null }>;
 
 export function SettingsTabs({
   initialTab,
@@ -25,6 +27,7 @@ export function SettingsTabs({
   services,
   accounts,
   staff,
+  payConfig,
 }: {
   initialTab: string;
   shopId: string;
@@ -32,6 +35,7 @@ export function SettingsTabs({
   services: ServiceRow[];
   accounts: AccountRow[];
   staff: StaffRow[];
+  payConfig: PayConfig;
 }) {
   const [tab, setTab] = useState<Tab>((["services", "accounts", "branches", "staff"] as Tab[]).includes(initialTab as Tab) ? (initialTab as Tab) : "services");
   const toReview = services.filter((s) => !s.reviewed).length;
@@ -51,7 +55,7 @@ export function SettingsTabs({
         />
       </div>
       {tab === "services" && <ServicesSettings services={services} />}
-      {tab === "accounts" && <AccountsSettings shopId={shopId} branches={branches} accounts={accounts} />}
+      {tab === "accounts" && <AccountsSettings shopId={shopId} branches={branches} accounts={accounts} payConfig={payConfig} />}
       {tab === "branches" && <BranchesSettings shopId={shopId} branches={branches} />}
       {tab === "staff" && <StaffSettings branches={branches} staff={staff} />}
     </div>
@@ -108,19 +112,18 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
   const { busy, error, run, setError } = useSubmit();
   const [name, setName] = useState(service.name);
   const [flow, setFlow] = useState<Flow>(service.flow);
-  const [fee, setFee] = useState<RuleDraft>(ruleToInput(service.fee_rule));
-  const [commission, setCommission] = useState<RuleDraft>(ruleToInput(service.commission_rule));
+  const [fee, setFee] = useState<RuleDraft>(ruleToDraft(service.fee_rule));
+  const [commission, setCommission] = useState<RuleDraft>(ruleToDraft(service.commission_rule));
   const [cost, setCost] = useState<RuleDraft>(ruleToInput(service.portal_cost_rule));
   const [aliases, setAliases] = useState(service.aliases.join(", "));
   const uses = flowUses(flow);
-  const keepSlab = (orig: ServiceRow["fee_rule"], draft: RuleDraft) => (orig?.type === "slab" && draft.value === "" ? orig : null);
 
   const save = async (patch?: Partial<{ active: boolean; reviewed: boolean }>) => {
     let rules;
     try {
       rules = {
-        fee_rule: uses.fee ? (keepSlab(service.fee_rule, fee) ?? ruleFromInput(fee.mode, fee.value)) : null,
-        commission_rule: uses.commission ? (keepSlab(service.commission_rule, commission) ?? ruleFromInput(commission.mode, commission.value)) : null,
+        fee_rule: uses.fee ? ruleFromDraft(fee) : null,
+        commission_rule: uses.commission ? ruleFromDraft(commission) : null,
         portal_cost_rule: uses.portalCost ? ruleFromInput("fixed", cost.value) : null,
       };
     } catch (e) {
@@ -163,8 +166,8 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
           </Select>
         </Field>
         {uses.fee ? (
-          <Field label="Your charge from customer" htmlFor={`fee-${service.id}`} hint={service.fee_rule?.type === "slab" && fee.value === "" ? "Charge by amount is set. Type a value to replace it." : "Empty = no charge"}>
-            <RuleInput id={`fee-${service.id}`} label="Charge" value={fee} onChange={setFee} />
+          <Field label="Your charge from customer" htmlFor={`fee-${service.id}`} hint={fee.mode === "slab" ? "Bigger amount, bigger charge. The last row covers everything above." : "Empty = no charge. Use “By amount” if the charge grows with the amount."}>
+            <RuleInput id={`fee-${service.id}`} label="Charge" allowSlab value={fee} onChange={setFee} />
           </Field>
         ) : null}
         {uses.commission ? (
@@ -205,7 +208,7 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
 
 const TYPES = { cash: "Cash", wallet: "Portal wallet", bank: "Bank / UPI" } as const;
 
-function AccountsSettings({ shopId, branches, accounts }: { shopId: string; branches: Branch[]; accounts: AccountRow[] }) {
+function AccountsSettings({ shopId, branches, accounts, payConfig }: { shopId: string; branches: Branch[]; accounts: AccountRow[]; payConfig: PayConfig }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       {branches.map((b) => (
@@ -219,6 +222,12 @@ function AccountsSettings({ shopId, branches, accounts }: { shopId: string; bran
               ))}
           </ul>
           <NewAccount shopId={shopId} branchId={b.id} />
+          <PayButtonsEditor
+            key={JSON.stringify(payConfig[b.id] ?? null)}
+            branchId={b.id}
+            accounts={accounts.filter((a) => a.branch_id === b.id && a.active)}
+            saved={payConfig[b.id] ?? { buttons: null, default: null }}
+          />
         </Card>
       ))}
     </div>
@@ -247,6 +256,59 @@ function AccountItem({ account }: { account: AccountRow }) {
       </div>
       {error ? <p className="text-sm text-out">{error}</p> : null}
     </li>
+  );
+}
+
+/** Owner picks which "How did the customer pay?" buttons this branch shows on New entry, and the one picked first. */
+function PayButtonsEditor({
+  branchId,
+  accounts,
+  saved,
+}: {
+  branchId: string;
+  accounts: AccountRow[];
+  saved: { buttons: string[] | null; default: string | null };
+}) {
+  const { busy, error, done, run, setError } = useSubmit();
+  const all = allPayButtons(accounts);
+  const current = branchPayButtons(saved.buttons, accounts);
+  const [on, setOn] = useState<string[]>(current.map((b) => b.key));
+  const [first, setFirst] = useState(defaultPayKey(saved.default, current));
+  const toggle = (key: string) => setOn(on.includes(key) ? on.filter((k) => k !== key) : [...on, key]);
+  const ordered = all.filter((b) => on.includes(b.key)).map((b) => b.key);
+
+  const save = async () => {
+    if (ordered.length === 0) return setError("Keep at least one button");
+    const def = ordered.includes(first) ? first : ordered[0];
+    setFirst(def);
+    await run(() => createClient().from("branches").update({ pay_buttons: ordered, default_pay: def }).eq("id", branchId), "Saved");
+  };
+
+  return (
+    <div className="mt-5 flex flex-col gap-2 border-t border-dashed border-rule pt-4">
+      <h3 className="font-medium">Payment buttons on New entry</h3>
+      <p className="text-sm text-ink-soft">Tick the ways customers pay here. Add a Bank / UPI account above (e.g. Paytm Business) to get its button.</p>
+      <ul className="flex flex-col divide-y divide-rule rounded-lg border border-rule">
+        {all.map((b) => (
+          <li key={b.key} className="flex min-h-11 items-center justify-between gap-3 px-3">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={on.includes(b.key)} onChange={() => toggle(b.key)} className="size-4 accent-[var(--accent)]" />
+              {b.label}
+              {b.mode === "udhaar" ? <span className="text-xs text-ink-soft">pay later</span> : b.mode === "split" ? <span className="text-xs text-ink-soft">part cash, part UPI</span> : null}
+            </label>
+            <label className={cx("flex items-center gap-1.5 text-sm", on.includes(b.key) ? "text-ink-soft" : "invisible")}>
+              <input type="radio" name={`default-${branchId}`} checked={first === b.key} onChange={() => setFirst(b.key)} className="size-4 accent-[var(--accent)]" />
+              Default
+            </label>
+          </li>
+        ))}
+      </ul>
+      {error ? <Banner>{error}</Banner> : null}
+      {done ? <Banner tone="info">{done}</Banner> : null}
+      <Button type="button" variant="secondary" disabled={busy} onClick={() => void save()} className="self-end">
+        {busy ? "Saving…" : "Save buttons"}
+      </Button>
+    </div>
   );
 }
 

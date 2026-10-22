@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcRule, describeRule, previewEntry, ruleFromInput, ruleToInput } from "@/lib/rules";
+import { calcRule, describeRule, previewEntry, ruleFromDraft, ruleFromInput, ruleToDraft, ruleToInput, slabsFromRows } from "@/lib/rules";
 
 const slab = { type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, value: 2000 }] } as const;
 
@@ -68,7 +68,46 @@ describe("describeRule", () => {
   it("says the rule in plain words", () => {
     expect(describeRule({ type: "fixed", value: 2000 })).toBe("₹20.00");
     expect(describeRule({ type: "percent", bps: 25 })).toBe("0.25%");
-    expect(describeRule({ type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, value: 2000 }] })).toBe("by amount (2 slabs)");
+    expect(describeRule({ type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, value: 2000 }] })).toBe("up to ₹1,000.00: ₹10.00, above: ₹20.00");
     expect(describeRule(null)).toBe("none");
+  });
+});
+
+describe("charge by amount (slabs)", () => {
+  it("turns rows into a slab rule; the last row has no limit", () => {
+    expect(
+      slabsFromRows([
+        { upto: "1000", value: "10" },
+        { upto: "10,000", value: "50" },
+        { upto: "", value: "100" },
+      ]),
+    ).toEqual({
+      type: "slab",
+      slabs: [
+        { upto: 100000, value: 1000 },
+        { upto: 1000000, value: 5000 },
+        { upto: null, value: 10000 },
+      ],
+    });
+  });
+  it("charges more for bigger amounts", () => {
+    const rule = slabsFromRows([
+      { upto: "1000", value: "10" },
+      { upto: "", value: "20" },
+    ]);
+    expect(calcRule(rule, 100000)).toBe(1000);
+    expect(calcRule(rule, 1000000)).toBe(2000);
+  });
+  it("no charges typed means no rule", () => {
+    expect(slabsFromRows([{ upto: "1000", value: "" }, { upto: "", value: " " }])).toBeNull();
+  });
+  it("rejects missing or falling limits", () => {
+    expect(() => slabsFromRows([{ upto: "", value: "10" }, { upto: "", value: "20" }])).toThrow(/up to/);
+    expect(() => slabsFromRows([{ upto: "5000", value: "10" }, { upto: "1000", value: "20" }, { upto: "", value: "30" }])).toThrow(/go up/);
+  });
+  it("round-trips through drafts", () => {
+    expect(ruleFromDraft(ruleToDraft(slab))).toEqual(slab);
+    expect(ruleToDraft(slab)).toEqual({ mode: "slab", value: "", slabs: [{ upto: "1000", value: "10" }, { upto: "", value: "20" }] });
+    expect(ruleFromDraft(ruleToDraft({ type: "percent", bps: 100 }))).toEqual({ type: "percent", bps: 100 });
   });
 });

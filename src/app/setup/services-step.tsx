@@ -8,7 +8,7 @@ import { RuleInput, emptyRule, type RuleDraft } from "@/components/rule-input";
 import { SERVICE_TEMPLATES } from "@/lib/service-templates";
 import { FLOWS, flowUses } from "@/lib/flows";
 import { normalizeName } from "@/lib/services";
-import { ruleFromInput, type Flow } from "@/lib/rules";
+import { ruleFromDraft, ruleFromInput, type Flow } from "@/lib/rules";
 import { saveServices, type ServiceRow } from "./actions";
 
 type Draft = {
@@ -57,8 +57,8 @@ export function ServicesStep({ existingNames }: { existingNames: string[] }) {
               flow: r.flow,
               category: r.category,
               aliases: r.aliases,
-              feeRule: uses.fee ? ruleFromInput(r.fee.mode, r.fee.value) : null,
-              commissionRule: uses.commission ? ruleFromInput(r.commission.mode, r.commission.value) : null,
+              feeRule: uses.fee ? ruleFromDraft(r.fee) : null,
+              commissionRule: uses.commission ? ruleFromDraft(r.commission) : null,
               portalCostRule: uses.portalCost ? ruleFromInput("fixed", r.portalCost.value) : null,
             };
           });
@@ -112,7 +112,7 @@ export function ServicesStep({ existingNames }: { existingNames: string[] }) {
                   {uses.fee ? (
                     <label className="flex flex-col gap-1 text-xs text-ink-soft">
                       Your charge (optional)
-                      <RuleInput id={`fee-${i}`} label="Fee" value={r.fee} onChange={(v) => update(i, { fee: v })} />
+                      <RuleInput id={`fee-${i}`} label="Fee" allowSlab value={r.fee} onChange={(v) => update(i, { fee: v })} />
                     </label>
                   ) : null}
                   {uses.commission ? (

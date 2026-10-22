@@ -9,6 +9,7 @@ import { formatINR, rupeesToPaise } from "@/lib/money";
 import { calcRule, previewEntry } from "@/lib/rules";
 import { flowCopy, flowLabel, flowUses } from "@/lib/flows";
 import { buildPayments, changeDue, type PartKind, type PayMode } from "@/lib/payments";
+import { branchPayButtons, defaultPayKey } from "@/lib/pay-buttons";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/database.types";
 import { ServicePicker } from "./service-picker";
@@ -16,7 +17,6 @@ import { CreateServiceDialog } from "./create-service-dialog";
 import { CustomerPicker } from "./customer-picker";
 import type { AccountOption, CustomerOption, ServiceOption } from "./types";
 
-const PAY_LABEL: Record<PayMode, string> = { cash: "Cash", upi: "UPI", udhaar: "Udhaar", split: "Mixed" };
 const PAY_ICON = { cash: Banknote, upi: Smartphone, udhaar: BookUser, split: Split } as const;
 
 const walletKey = (branchId: string, serviceId: string) => `pk:wallet:${branchId}:${serviceId}`;
@@ -64,6 +64,8 @@ export function EntryForm({
   services: initialServices,
   accounts,
   customers: initialCustomers,
+  payButtons,
+  defaultPay,
 }: {
   shopId: string;
   branchId: string;
@@ -71,6 +73,9 @@ export function EntryForm({
   services: ServiceOption[];
   accounts: AccountOption[];
   customers: CustomerOption[];
+  /** Branch's saved payment buttons (null = Cash + every bank/UPI account). */
+  payButtons: string[] | null;
+  defaultPay: string | null;
 }) {
   const router = useRouter();
   const pickerRef = useRef<HTMLInputElement>(null);
@@ -86,7 +91,9 @@ export function EntryForm({
   const [feeText, setFeeText] = useState("");
   const [commissionText, setCommissionText] = useState("");
   const [costText, setCostText] = useState("");
-  const [payMode, setPayMode] = useState<PayMode>("cash");
+  const buttons = useMemo(() => branchPayButtons(payButtons, accounts), [payButtons, accounts]);
+  const startKey = defaultPayKey(defaultPay, buttons);
+  const [payKey, setPayKey] = useState(startKey);
   const [upiId, setUpiId] = useState(accounts.find((a) => a.type === "bank")?.id ?? "");
   const [receivedText, setReceivedText] = useState("");
   const [showReceived, setShowReceived] = useState(false);
@@ -109,6 +116,11 @@ export function EntryForm({
   const uses = service ? flowUses(service.flow) : null;
   const copy = service ? flowCopy(service.flow) : null;
   const givesCash = service?.flow === "cash_out";
+  // When the shop gives cash there is no udhaar or mixed: only cash and bank/UPI buttons.
+  const shownButtons = givesCash ? buttons.filter((b) => b.mode === "cash" || b.mode === "upi") : buttons;
+  const payButton = shownButtons.find((b) => b.key === payKey) ?? shownButtons[0];
+  const payMode: PayMode = payButton?.mode ?? "cash";
+  const payUpiId = payButton?.mode === "upi" ? payButton.accountId : upiId;
 
   useEffect(() => setServices(initialServices), [initialServices]);
 
@@ -149,7 +161,6 @@ export function EntryForm({
     // UPI-to-cash money lands in the bank; everything else defaults to the first portal wallet.
     const preferred = s.category === "upi_cash" ? banks[0] : undefined;
     setWalletId(walletChoices.find((w) => w.id === remembered)?.id ?? preferred?.id ?? walletChoices[0]?.id ?? "");
-    if (s.flow === "cash_out" && (payMode === "udhaar" || payMode === "split")) setPayMode("cash");
     requestAnimationFrame(() => amountRef.current?.focus());
   };
 
@@ -160,7 +171,7 @@ export function EntryForm({
     setCommissionText("");
     setCostText("");
     setShowCharges(false);
-    setPayMode("cash");
+    setPayKey(startKey);
     setReceivedText("");
     setShowReceived(false);
     setParts([
@@ -192,7 +203,7 @@ export function EntryForm({
       total: preview.customerTotal,
       flow: service.flow,
       cashId,
-      upiId: upiId || undefined,
+      upiId: payUpiId || undefined,
       hasCustomer: !!customer,
       parts: partsPaise,
       received: givesCash ? undefined : (receivedO ?? undefined),
@@ -228,7 +239,6 @@ export function EntryForm({
     router.refresh();
   };
 
-  const modes: PayMode[] = givesCash ? ["cash", "upi"] : ["cash", "upi", "udhaar", "split"];
 
   return (
     <Card className="relative">
@@ -342,33 +352,34 @@ export function EntryForm({
             ) : null}
 
             <Field label={copy.pay}>
-              <div role="radiogroup" className={cx("grid gap-2", modes.length === 2 ? "grid-cols-2" : "grid-cols-4")}>
-                {modes.map((m) => {
-                  const Icon = PAY_ICON[m];
+              <div role="radiogroup" className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))]">
+                {shownButtons.map((b) => {
+                  const Icon = PAY_ICON[b.mode];
+                  const on = payButton?.key === b.key;
                   return (
                     <button
-                      key={m}
+                      key={b.key}
                       type="button"
                       role="radio"
-                      aria-checked={payMode === m}
+                      aria-checked={on}
                       onClick={() => {
-                        setPayMode(m);
-                        if (m === "udhaar") setShowCustomer(true);
+                        setPayKey(b.key);
+                        if (b.mode === "udhaar") setShowCustomer(true);
                       }}
                       className={cx(
-                        "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 text-[15px] font-medium transition sm:flex-row sm:gap-2",
-                        payMode === m ? "border-accent bg-accent text-accent-ink" : "border-rule-strong bg-raised text-ink hover:border-ink-soft",
+                        "flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg border px-2 text-[15px] font-medium transition",
+                        on ? "border-accent bg-accent text-accent-ink" : "border-rule-strong bg-raised text-ink hover:border-ink-soft",
                       )}
                     >
-                      <Icon size={17} aria-hidden />
-                      {PAY_LABEL[m]}
+                      <Icon size={17} aria-hidden className="shrink-0" />
+                      <span className="truncate">{b.label}</span>
                     </button>
                   );
                 })}
               </div>
             </Field>
 
-            {(payMode === "upi" || (payMode === "split" && parts.some((p) => p.kind === "upi"))) && banks.length > 1 ? (
+            {payMode === "split" && parts.some((p) => p.kind === "upi") && banks.length > 1 ? (
               <Field label={givesCash ? "UPI sent from" : "UPI received in"} htmlFor="upi">
                 <Select id="upi" value={upiId} onChange={(e) => setUpiId(e.target.value)}>
                   {banks.map((b) => (

@@ -37,10 +37,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const ctx = await getAppContext();
   if (!ctx.isOwner) redirect("/");
   const supabase = await createClient();
-  const [{ data: services }, { data: accounts }, { data: profiles }] = await Promise.all([
+  const [{ data: services }, { data: accounts }, { data: profiles }, { data: branchRows }] = await Promise.all([
     supabase.from("services").select("id, name, flow, aliases, fee_rule, commission_rule, portal_cost_rule, active, reviewed").order("name"),
     supabase.from("accounts").select("id, branch_id, name, type, active").order("created_at"),
     supabase.from("profiles").select("user_id, name, branch_id, active, role").eq("role", "staff").order("name"),
+    supabase.from("branches").select("id, pay_buttons, default_pay"),
   ]);
 
   // Usernames live in auth (as <username>@staff.projectk.local); look them up server-side.
@@ -60,6 +61,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       services={(services ?? []) as unknown as ServiceRow[]}
       accounts={(accounts ?? []) as AccountRow[]}
       staff={staff}
+      payConfig={Object.fromEntries((branchRows ?? []).map((b) => [b.id, { buttons: b.pay_buttons, default: b.default_pay }]))}
     />
   );
 }

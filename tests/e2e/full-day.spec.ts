@@ -28,6 +28,14 @@ async function signUpAndSetup(page: Page) {
 test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ page, browser }) => {
   await signUpAndSetup(page);
 
+  // Payment buttons start as Cash + bank accounts; the owner turns on Udhaar for this branch
+  await expect(page.getByRole("radio", { name: "Udhaar" })).toHaveCount(0);
+  await page.goto("/settings?tab=accounts");
+  await page.getByRole("checkbox", { name: /Udhaar/ }).check();
+  await page.getByRole("button", { name: "Save buttons" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
+  await page.goto("/");
+
   // Xerox ₹50 on udhaar for a new customer
   await page.getByPlaceholder(/Type a service/).fill("xerox");
   await page.getByRole("option", { name: /^Xerox/ }).click();
@@ -44,14 +52,17 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   // Udhaar: Ramesh owes ₹50, pays back ₹20
   await page.goto("/udhaar");
   await page.getByRole("button", { name: /Ramesh/ }).click();
-  await expect(page.getByText("Owes you")).toBeVisible();
+  await expect(page.getByText("Ramesh owes you")).toBeVisible();
+  await page.getByRole("button", { name: "Other amount, or give more udhaar" }).click();
   await page.getByLabel("Amount received (₹)").fill("20");
+  await expect(page.getByText("They will still owe ₹30.00")).toBeVisible();
   await page.getByRole("button", { name: "Save payment" }).click();
   await expect(page.getByText("₹20.00 received from Ramesh")).toBeVisible();
   await expect(page.getByText("₹30.00").filter({ visible: true }).first()).toBeVisible(); // panel balance (list hides on phones)
 
   // Ramesh also takes ₹200 cash as udhaar (no purchase) → owes ₹230
-  await page.getByRole("radio", { name: "Taking money" }).click();
+  await page.getByRole("button", { name: "Other amount, or give more udhaar" }).click();
+  await page.getByRole("radio", { name: "Customer takes money" }).click();
   await page.getByLabel("Amount given (₹)").fill("200");
   await expect(page.getByText("They will owe you ₹230.00")).toBeVisible();
   await page.getByRole("button", { name: "Save udhaar given" }).click();
@@ -101,6 +112,14 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await page.getByLabel("Charge", { exact: true }).fill("10");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: /AEPS withdrawal.*charge ₹10.00/ })).toBeVisible();
+  // ...then make the charge grow with the amount
+  await page.getByRole("button", { name: /AEPS withdrawal/ }).click();
+  await page.getByRole("radio", { name: "By amount" }).click();
+  await page.getByLabel("Charge up to amount 1").fill("1000");
+  await page.getByLabel("Charge for amount 1").fill("10");
+  await page.getByLabel("Charge above").fill("20");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("button", { name: /AEPS withdrawal.*up to ₹1,000.00: ₹10.00, above: ₹20.00/ })).toBeVisible();
   await page.getByRole("tab", { name: "Staff" }).click();
   const username = `st${randomUUID().slice(0, 6)}`;
   await page.getByLabel("Staff name").fill("Suresh");
@@ -131,4 +150,12 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await page.goto("/settings");
   await expect(page.getByRole("tab", { name: "Services (1 new)" })).toBeVisible();
   await expect(page.getByText("New · check")).toBeVisible();
+
+  // Ramesh pays everything back: one tap clears the udhaar
+  await page.goto("/udhaar");
+  await page.getByRole("button", { name: /Ramesh/ }).click();
+  await expect(page.getByText("Got all ₹230.00 back? Tap how:")).toBeVisible();
+  await page.getByRole("button", { name: "Cash", exact: true }).click();
+  await expect(page.getByText("₹230.00 received from Ramesh (Cash)")).toBeVisible();
+  await expect(page.getByText("All clear. Nobody owes anything.")).toBeVisible();
 });

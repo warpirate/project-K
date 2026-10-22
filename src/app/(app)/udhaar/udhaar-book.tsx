@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Banknote, BookUser, Phone, Search, Smartphone, UserPlus } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Banknote, BookUser, CircleCheck, Phone, Search, Smartphone, UserPlus } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Segmented, Select, cx } from "@/components/ui";
 import { IconTile, KIND_ICON } from "@/components/icons";
 import { formatINR, rupeesToPaise } from "@/lib/money";
@@ -22,6 +22,7 @@ interface HistoryRow {
   amount: number;
   when: string;
   what: string;
+  effect: string;
   kind: string;
   note: string | null;
 }
@@ -66,7 +67,7 @@ export function UdhaarBook({
               "Nobody owes you"
             ) : (
               <>
-                {owing} owe you <span className="money text-base font-semibold text-out">{formatINR(total)}</span>
+                {owing === 1 ? "1 person owes" : `${owing} people owe`} you <span className="money text-base font-semibold text-out">{formatINR(total)}</span>
               </>
             )}
           </p>
@@ -126,8 +127,11 @@ export function UdhaarBook({
                       {c.phone ? <span className="money text-sm text-ink-soft">{c.phone}</span> : null}
                     </span>
                   </span>
-                  <span className={cx("money font-semibold", c.due > 0 ? "text-out" : c.due < 0 ? "text-in" : "text-ink-soft")}>
-                    {c.due < 0 ? `advance ${formatINR(-c.due)}` : formatINR(c.due)}
+                  <span className="shrink-0 text-right">
+                    <span className={cx("money block font-semibold", c.due > 0 ? "text-out" : c.due < 0 ? "text-in" : "text-ink-soft")}>
+                      {c.due === 0 ? "—" : formatINR(Math.abs(c.due))}
+                    </span>
+                    <span className="block text-xs text-ink-soft">{c.due > 0 ? "owes you" : c.due < 0 ? "you hold" : "clear"}</span>
                   </span>
                 </button>
               </li>
@@ -217,11 +221,13 @@ type Action = "pay" | "take";
 
 const rupeesText = (paise: number) => (paise / 100).toFixed(2).replace(/\.00$/, "");
 
-const HISTORY_WHAT: Record<string, string> = {
-  udhaar_payment: "Paid back",
-  udhaar_given: "Took money",
-  reversal: "Reversed",
-};
+/** History row label and what it did to the balance, in plain words. */
+function historyWords(kind: string, amount: number, service?: string): { what: string; effect: string } {
+  if (kind === "reversal") return { what: "Entry reversed", effect: amount > 0 ? "owes more" : "owes less" };
+  if (kind === "udhaar_payment") return { what: "Paid back", effect: "paid" };
+  if (kind === "udhaar_given") return { what: "Took money", effect: "owes more" };
+  return { what: service ? `${service} on udhaar` : "On udhaar", effect: amount > 0 ? "owes more" : "paid" };
+}
 
 function CustomerPanel({
   customer,
@@ -238,8 +244,11 @@ function CustomerPanel({
 }) {
   const { busy, error, done, run, setError, setDone } = useSubmit();
   const due = customer.due;
+  const [formOpen, setFormOpen] = useState(false);
+  // Nothing to clear → the form is the only thing to do, so it is always open.
+  const showForm = formOpen || due === 0;
   const [action, setAction] = useState<Action>(due > 0 ? "pay" : "take");
-  const [amount, setAmount] = useState(due > 0 ? rupeesText(due) : "");
+  const [amount, setAmount] = useState("");
   const [mode, setMode] = useState<"cash" | "upi">("cash");
   const [bankId, setBankId] = useState(banks[0]?.id ?? "");
   const [note, setNote] = useState("");
@@ -264,7 +273,7 @@ function CustomerPanel({
               id: l.id,
               amount: Number(l.amount),
               when: new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(t.created_at)),
-              what: HISTORY_WHAT[t.kind] ?? t.services?.name ?? t.kind,
+              ...historyWords(t.kind, Number(l.amount), t.services?.name),
               kind: t.kind,
               note: t.note,
             };
@@ -276,48 +285,43 @@ function CustomerPanel({
     };
   }, [customer.id, done]);
 
-  const switchAction = (a: Action) => {
-    setAction(a);
-    setAmount(a === "pay" && due > 0 ? rupeesText(due) : "");
-    setError(undefined);
-    setDone(undefined);
-  };
-
-  // What will happen, in counter words, before saving.
-  let hint: string | null = null;
-  if (action === "pay") {
-    if (due <= 0) hint = "They owe nothing now. This money will be kept as their advance.";
-    else if (paise && paise > due) hint = `${formatINR(paise - due)} more than they owe. The extra is kept as their advance.`;
-    else if (paise && paise < due) hint = `They will still owe ${formatINR(due - paise)}.`;
-  } else if (paise) {
-    if (due < 0 && paise <= -due) hint = `Giving back their advance.${paise < -due ? ` ${formatINR(-due - paise)} advance stays.` : ""}`;
-    else if (due < 0) hint = `${formatINR(-due)} is their advance, ${formatINR(paise + due)} becomes udhaar.`;
-    else hint = `They will owe you ${formatINR(due + paise)}.`;
-  }
-
-  const submit = async () => {
-    if (!paise) return setError(action === "pay" ? "Enter the amount received" : "Enter the amount given");
-    const accountId = mode === "cash" ? cashId : bankId;
-    if (!accountId) return setError(mode === "cash" ? "No cash account in this branch" : "No bank/UPI account in this branch");
-    const args = {
-      p_client_id: clientId,
-      p_branch_id: branchId,
-      p_customer_id: customer.id,
-      p_account_id: accountId,
-      p_amount: paise,
-      p_note: note.trim() || undefined,
-    };
+  /** Saves a payback ("pay") or money given ("take") of `value` paise into/out of `accountId`. */
+  const post = async (act: Action, value: number, accountId: string | undefined, how: string, text?: string) => {
+    if (!accountId) return setError(how === "Cash" ? "No cash account in this branch" : "No bank/UPI account in this branch");
     const ok = await run(
-      () => createClient().rpc(action === "pay" ? "post_udhaar_payment" : "post_udhaar_given", args),
-      action === "pay" ? `${formatINR(paise)} received from ${customer.name}` : `${formatINR(paise)} given to ${customer.name}`,
+      () =>
+        createClient().rpc(act === "pay" ? "post_udhaar_payment" : "post_udhaar_given", {
+          p_client_id: clientId,
+          p_branch_id: branchId,
+          p_customer_id: customer.id,
+          p_account_id: accountId,
+          p_amount: value,
+          p_note: text?.trim() || undefined,
+        }),
+      act === "pay" ? `${formatINR(value)} received from ${customer.name} (${how})` : `${formatINR(value)} given to ${customer.name} (${how})`,
     );
     if (ok) {
       setAmount("");
       setNote("");
+      setFormOpen(false);
       setClientId(crypto.randomUUID());
     }
   };
 
+  // What the form will do, in counter words, before saving.
+  let hint: string | null = null;
+  if (action === "pay" && paise) {
+    if (due <= 0) hint = "They owe nothing now. This money will be kept as their advance.";
+    else if (paise > due) hint = `${formatINR(paise - due)} more than they owe. The extra is kept as their advance.`;
+    else if (paise < due) hint = `They will still owe ${formatINR(due - paise)}.`;
+    else hint = "All clear after this ✓";
+  } else if (action === "take" && paise) {
+    if (due < 0 && paise <= -due) hint = paise < -due ? `You will still hold ${formatINR(-due - paise)} of theirs.` : "All clear after this ✓";
+    else if (due < 0) hint = `${formatINR(-due)} is their advance, ${formatINR(paise + due)} becomes udhaar.`;
+    else hint = `They will owe you ${formatINR(due + paise)}.`;
+  }
+
+  const howOptions = [{ id: cashId, name: "Cash", icon: Banknote }, ...banks.map((b) => ({ id: b.id, name: b.name, icon: Smartphone }))];
   const pay = action === "pay";
 
   return (
@@ -325,114 +329,150 @@ function CustomerPanel({
       <button type="button" onClick={onBack} className="mb-3 inline-flex items-center gap-1 text-sm text-ink-soft lg:hidden">
         <ArrowLeft size={16} /> All customers
       </button>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Initials name={customer.name} />
-          <div className="min-w-0">
-            <h2 className="truncate font-display text-2xl">{customer.name}</h2>
-            {customer.phone ? (
-              <a href={`tel:${customer.phone}`} className="money mt-1 inline-flex items-center gap-1 text-sm text-accent">
-                <Phone size={14} /> {customer.phone}
-              </a>
-            ) : null}
+      <div className="flex items-center gap-3">
+        <Initials name={customer.name} />
+        <div className="min-w-0">
+          <h2 className="truncate font-display text-2xl">{customer.name}</h2>
+          {customer.phone ? (
+            <a href={`tel:${customer.phone}`} className="money inline-flex items-center gap-1 text-sm text-accent">
+              <Phone size={14} /> {customer.phone}
+            </a>
+          ) : null}
+        </div>
+      </div>
+
+      {/* One look: who owes whom, how much. */}
+      <div
+        className={cx(
+          "mt-5 rounded-xl px-5 py-4",
+          due > 0 ? "bg-danger-soft" : due < 0 ? "bg-accent-soft" : "border border-rule bg-paper",
+        )}
+      >
+        {due === 0 ? (
+          <p className="flex items-center gap-2 text-xl font-semibold">
+            <CircleCheck size={22} className="text-in" aria-hidden /> All clear. Nobody owes anything.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-ink-soft">{due > 0 ? `${customer.name} owes you` : `You are holding ${customer.name}'s money`}</p>
+            <p className={cx("money text-4xl font-semibold", due > 0 ? "text-out" : "text-in")}>{formatINR(Math.abs(due))}</p>
+          </>
+        )}
+      </div>
+
+      {due !== 0 ? (
+        <div className="mt-4">
+          <p className="mb-2 font-medium">{due > 0 ? `Got all ${formatINR(due)} back? Tap how:` : `Gave back all ${formatINR(-due)}? Tap how:`}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {howOptions.map((o) => (
+              <Button
+                key={o.name}
+                type="button"
+                disabled={busy}
+                className="min-h-13 min-w-0"
+                onClick={() => void post(due > 0 ? "pay" : "take", Math.abs(due), o.id, o.name)}
+              >
+                <o.icon size={17} aria-hidden className="shrink-0" />
+                <span className="truncate">{o.name}</span>
+              </Button>
+            ))}
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs uppercase tracking-wide text-ink-soft">{due < 0 ? "Advance" : "Owes you"}</p>
-          <p className={cx("money text-2xl font-semibold", due > 0 ? "text-out" : due < 0 ? "text-in" : "text-ink-soft")}>{formatINR(Math.abs(due))}</p>
+      ) : null}
+
+      {error && !showForm ? <div className="mt-3"><Banner>{error}</Banner></div> : null}
+      {done && !showForm ? <div className="mt-3"><Banner tone="info">{done}</Banner></div> : null}
+
+      {!showForm ? (
+        <button type="button" onClick={() => setFormOpen(true)} className="mt-4 text-sm text-accent underline-offset-4 hover:underline">
+          Other amount, or give more udhaar
+        </button>
+      ) : (
+        <div className="mt-5 flex flex-col gap-3">
+          <Segmented
+            label="What is happening?"
+            options={[
+              { value: "take", label: due < 0 ? "Give back" : "Customer takes money", icon: <ArrowUpFromLine size={17} aria-hidden /> },
+              { value: "pay", label: "Customer pays", icon: <ArrowDownToLine size={17} aria-hidden /> },
+            ]}
+            value={action}
+            onChange={(a) => {
+              setAction(a);
+              setError(undefined);
+              setDone(undefined);
+            }}
+          />
+          <form
+            className="flex flex-col gap-4 rounded-xl border border-rule bg-paper p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!paise) return setError(pay ? "Enter the amount received" : "Enter the amount given");
+              void post(action, paise, mode === "cash" ? cashId : bankId, mode === "cash" ? "Cash" : (banks.find((b) => b.id === bankId)?.name ?? "UPI"), note);
+            }}
+          >
+            <Field label={pay ? "Amount received (₹)" : "Amount given (₹)"} htmlFor="ud-amount">
+              <Input id="ud-amount" inputMode="decimal" placeholder="0" className="money min-h-13 text-2xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </Field>
+            <Segmented
+              label={pay ? "How did they pay?" : "How do you give the money?"}
+              options={[
+                { value: "cash", label: "Cash", icon: <Banknote size={17} aria-hidden /> },
+                { value: "upi", label: "UPI", icon: <Smartphone size={17} aria-hidden /> },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
+            {mode === "upi" && banks.length > 1 ? (
+              <Select aria-label={pay ? "UPI received in" : "UPI sent from"} value={bankId} onChange={(e) => setBankId(e.target.value)}>
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            <Input
+              aria-label="Note"
+              placeholder={pay ? "Note (optional)" : "What for? (optional) e.g. hospital, returns Monday"}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            {hint ? <p className="text-sm font-medium">{hint}</p> : null}
+            {error ? <Banner>{error}</Banner> : null}
+            {done ? <Banner tone="info">{done}</Banner> : null}
+            <Button type="submit" disabled={busy} className="min-h-12">
+              {busy ? "Saving…" : pay ? "Save payment" : due < 0 ? "Save money given back" : "Save udhaar given"}
+            </Button>
+          </form>
         </div>
-      </div>
+      )}
 
-      <div className="mt-6">
-        <Segmented
-          label="What is happening?"
-          options={[
-            { value: "pay", label: "Paying back", icon: <ArrowDownToLine size={17} aria-hidden /> },
-            { value: "take", label: due < 0 ? "Return advance" : "Taking money", icon: <ArrowUpFromLine size={17} aria-hidden /> },
-          ]}
-          value={action}
-          onChange={switchAction}
-        />
-      </div>
-
-      <form
-        className="mt-3 flex flex-col gap-4 rounded-xl border border-rule bg-paper p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        <p className="text-sm text-ink-soft">
-          {pay
-            ? "Customer gives you money for their udhaar."
-            : due < 0
-              ? "You give the customer back the advance they left with you."
-              : "Customer takes cash or UPI from the shop without buying anything. They will owe you."}
-        </p>
-        <Field label={pay ? "Amount received (₹)" : "Amount given (₹)"} htmlFor="ud-amount">
-          <Input id="ud-amount" inputMode="decimal" placeholder="0" className="money min-h-13 text-2xl" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </Field>
-        <Segmented
-          label={pay ? "How did they pay?" : "How do you give the money?"}
-          options={[
-            { value: "cash", label: "Cash", icon: <Banknote size={17} aria-hidden /> },
-            { value: "upi", label: "UPI", icon: <Smartphone size={17} aria-hidden /> },
-          ]}
-          value={mode}
-          onChange={setMode}
-        />
-        {mode === "upi" && banks.length > 1 ? (
-          <Select aria-label={pay ? "UPI received in" : "UPI sent from"} value={bankId} onChange={(e) => setBankId(e.target.value)}>
-            {banks.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
-        ) : null}
-        <Input
-          aria-label="Note"
-          placeholder={pay ? "Note (optional)" : "What for? (optional) e.g. hospital, returns Monday"}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-        {hint ? <p className="text-sm font-medium">{hint}</p> : null}
-        {error ? <Banner>{error}</Banner> : null}
-        {done ? <Banner tone="info">{done}</Banner> : null}
-        <Button type="submit" disabled={busy} className="min-h-12">
-          {busy ? "Saving…" : pay ? "Save payment" : due < 0 ? "Save advance returned" : "Save udhaar given"}
-        </Button>
-      </form>
-
-      <h3 className="mt-6 font-medium">History</h3>
+      <h3 className="mt-7 font-medium">History</h3>
       {history === null ? (
         <p className="py-6 text-sm text-ink-soft">Loading…</p>
       ) : history.length === 0 ? (
-        <p className="py-6 text-sm text-ink-soft">No udhaar yet.</p>
+        <p className="py-6 text-sm text-ink-soft">Nothing yet.</p>
       ) : (
-        <>
-          <ul className="mt-2 divide-y divide-rule">
-            {history.map((h) => (
-              <li key={h.id} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="flex min-w-0 items-center gap-3">
-                  <IconTile size="sm" icon={KIND_ICON[h.kind] ?? BookUser} tone={h.kind === "reversal" ? "plain" : h.amount > 0 ? "out" : "in"} />
-                  <span className="min-w-0">
-                    <span className="block">{h.what}</span>
-                    <span className="block truncate text-xs text-ink-soft">
-                      {h.when}
-                      {h.note ? ` · ${h.note}` : ""}
-                    </span>
+        <ul className="mt-2 divide-y divide-rule">
+          {history.map((h) => (
+            <li key={h.id} className="flex items-center justify-between gap-3 py-2.5">
+              <span className="flex min-w-0 items-center gap-3">
+                <IconTile size="sm" icon={KIND_ICON[h.kind] ?? BookUser} tone={h.amount > 0 ? "out" : "in"} />
+                <span className="min-w-0">
+                  <span className="block">{h.what}</span>
+                  <span className="block truncate text-xs text-ink-soft">
+                    {h.when}
+                    {h.note ? ` · ${h.note}` : ""}
                   </span>
                 </span>
-                <span className={cx("money font-medium", h.amount > 0 ? "text-out" : "text-in")}>
-                  {h.amount > 0 ? "+" : "−"}
-                  {formatINR(Math.abs(h.amount))}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-ink-soft">+ means they owe more. − means they paid, or you are holding their money.</p>
-        </>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className={cx("money block font-medium", h.amount > 0 ? "text-out" : "text-in")}>{formatINR(Math.abs(h.amount))}</span>
+                <span className="block text-xs text-ink-soft">{h.effect}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   );

@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { KeyRound, LogOut } from "lucide-react";
 import { getAppContext } from "@/lib/session";
 import { logOut } from "@/app/login/actions";
 import { BranchSwitcher } from "./branch-switcher";
@@ -25,6 +26,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           ) : branchName ? (
             <span className="rounded-full border border-rule-strong px-3 py-1.5 text-[15px] font-medium">{branchName}</span>
           ) : null}
+          <Link
+            href="/password"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full text-ink-soft hover:bg-raised hover:text-ink"
+            aria-label="Change password"
+            title="Change password"
+          >
+            <KeyRound size={18} />
+          </Link>
           <form action={logOut}>
             <button
               type="submit"

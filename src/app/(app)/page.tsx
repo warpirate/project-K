@@ -66,7 +66,10 @@ export default async function HomePage() {
       .order("created_at", { ascending: false }),
   ]);
 
-  const { data: people } = await supabase.from("profiles").select("user_id, name");
+  const [{ data: people }, { data: branch }] = await Promise.all([
+    supabase.from("profiles").select("user_id, name"),
+    supabase.from("branches").select("pay_buttons, default_pay").eq("id", ctx.branchId).maybeSingle(),
+  ]);
   const nameOf = new Map((people ?? []).map((p) => [p.user_id, p.name]));
 
   const all = txns.data ?? [];
@@ -104,6 +107,8 @@ export default async function HomePage() {
         services={(services.data ?? []) as unknown as ServiceOption[]}
         accounts={(accounts.data ?? []) as AccountOption[]}
         customers={(customers.data ?? []) as CustomerOption[]}
+        payButtons={branch?.pay_buttons ?? null}
+        defaultPay={branch?.default_pay ?? null}
       />
       <TodayList rows={rows} totalEarning={totalEarning} />
     </div>

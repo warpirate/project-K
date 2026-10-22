@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Banner, Button, Field, Input, Select } from "@/components/ui";
 import { RuleInput, emptyRule, type RuleDraft } from "@/components/rule-input";
 import { FLOWS, flowUses } from "@/lib/flows";
-import { ruleFromInput, type Flow, type Rule } from "@/lib/rules";
+import { ruleFromDraft, ruleFromInput, type Flow, type Rule } from "@/lib/rules";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/database.types";
 import type { ServiceOption } from "./types";
@@ -50,8 +50,8 @@ export function CreateServiceDialog({
     let rules: { fee_rule: Rule | null; commission_rule: Rule | null; portal_cost_rule: Rule | null };
     try {
       rules = {
-        fee_rule: uses.fee ? ruleFromInput(fee.mode, fee.value) : null,
-        commission_rule: uses.commission ? ruleFromInput(commission.mode, commission.value) : null,
+        fee_rule: uses.fee ? ruleFromDraft(fee) : null,
+        commission_rule: uses.commission ? ruleFromDraft(commission) : null,
         portal_cost_rule: uses.portalCost ? ruleFromInput("fixed", portalCost.value) : null,
       };
     } catch (e) {
@@ -122,7 +122,7 @@ export function CreateServiceDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             {uses.fee ? (
               <Field label="Your charge (optional)" htmlFor="svc-fee" hint="What you take from the customer">
-                <RuleInput id="svc-fee" label="Fee" value={fee} onChange={setFee} />
+                <RuleInput id="svc-fee" label="Fee" allowSlab value={fee} onChange={setFee} />
               </Field>
             ) : null}
             {uses.commission ? (

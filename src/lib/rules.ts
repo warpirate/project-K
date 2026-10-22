@@ -44,11 +44,29 @@ export function previewEntry(flow: Flow, amount: number, fee: number, commission
   }
 }
 
-export type RuleMode = "none" | "fixed" | "percent";
+export type RuleMode = "none" | "fixed" | "percent" | "slab";
+
+/** One "up to ₹X → ₹Y" row of a charge-by-amount rule, as typed. The last row means "above that". */
+export interface SlabRow {
+  upto: string;
+  value: string;
+}
+
+/** What a rule box holds while being edited. `slabs` is used when mode is "slab". */
+export interface RuleDraft {
+  mode: RuleMode;
+  value: string;
+  slabs?: SlabRow[];
+}
+
+export const emptySlabs = (): SlabRow[] => [
+  { upto: "1000", value: "" },
+  { upto: "", value: "" },
+];
 
 /** Form input → stored rule. Fixed is rupees (→ paise), percent is % (→ basis points). Empty/zero → null. */
 export function ruleFromInput(mode: RuleMode, value: string): Rule | null {
-  if (mode === "none" || value.trim() === "") return null;
+  if (mode === "none" || mode === "slab" || value.trim() === "") return null;
   const n = Number(value.replace(/,/g, "").trim());
   if (!Number.isFinite(n) || n < 0) throw new Error("Enter a valid number");
   if (n === 0) return null;
@@ -64,10 +82,55 @@ export function ruleToInput(rule: Rule | null | undefined): { mode: "fixed" | "p
   return rule.type === "fixed" ? { mode: "fixed", value: trim(rule.value / 100) } : { mode: "percent", value: trim(rule.bps / 100) };
 }
 
+const rupeeNumber = (v: string) => Number(v.replace(/,/g, "").trim());
+
+/**
+ * Charge-by-amount rows → slab rule. Rows need rising "up to" amounts; the last row has no limit.
+ * All charges empty → null (no charge).
+ */
+export function slabsFromRows(rows: SlabRow[]): Rule | null {
+  if (rows.length === 0 || rows.every((r) => r.value.trim() === "")) return null;
+  const slabs: { upto: number | null; value: number }[] = [];
+  let prev = 0;
+  rows.forEach((r, i) => {
+    const last = i === rows.length - 1;
+    const value = r.value.trim() === "" ? 0 : rupeeNumber(r.value);
+    if (!Number.isFinite(value) || value < 0) throw new Error("Charges must be rupee amounts, like 10");
+    let upto: number | null = null;
+    if (!last) {
+      const u = rupeeNumber(r.upto);
+      if (!r.upto.trim() || !Number.isFinite(u) || u <= 0) throw new Error("Fill every “up to” amount");
+      upto = Math.round(u * 100);
+      if (upto <= prev) throw new Error("“Up to” amounts must go up, like 1000, then 5000, then 10000");
+      prev = upto;
+    }
+    slabs.push({ upto, value: Math.round(value * 100) });
+  });
+  return { type: "slab", slabs };
+}
+
+/** Any draft (₹, % or by amount) → stored rule. */
+export function ruleFromDraft(d: RuleDraft): Rule | null {
+  return d.mode === "slab" ? slabsFromRows(d.slabs ?? []) : ruleFromInput(d.mode, d.value);
+}
+
+/** Stored rule → draft, including charge-by-amount rows. */
+export function ruleToDraft(rule: Rule | null | undefined): RuleDraft {
+  if (rule?.type !== "slab") return ruleToInput(rule);
+  const trim = (n: number) => String(Number((n / 100).toFixed(2)));
+  return {
+    mode: "slab",
+    value: "",
+    slabs: rule.slabs.map((s) => ({ upto: s.upto === null ? "" : trim(s.upto), value: trim(s.value) })),
+  };
+}
+
 /** Short plain-words description of a rule. */
 export function describeRule(rule: Rule | null | undefined): string {
   if (!rule) return "none";
   if (rule.type === "fixed") return formatINR(rule.value);
   if (rule.type === "percent") return `${Number((rule.bps / 100).toFixed(2))}%`;
-  return `by amount (${rule.slabs.length} slabs)`;
+  return rule.slabs
+    .map((s, i) => (s.upto === null ? `${i === 0 ? "" : "above: "}${formatINR(s.value)}` : `up to ${formatINR(s.upto)}: ${formatINR(s.value)}`))
+    .join(", ");
 }
