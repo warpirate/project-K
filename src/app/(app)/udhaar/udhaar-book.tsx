@@ -58,7 +58,7 @@ export function UdhaarBook({
   }, [customers, q, onlyDue, selectedId]);
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <Card className={cx(selected && "hidden lg:block")}>
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-display text-2xl">Udhaar</h1>

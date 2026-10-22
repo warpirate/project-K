@@ -122,7 +122,7 @@ export function CreateServiceDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             {uses.fee ? (
               <Field label="Your charge (optional)" htmlFor="svc-fee" hint="What you take from the customer">
-                <RuleInput id="svc-fee" label="Fee" allowSlab value={fee} onChange={setFee} />
+                <RuleInput id="svc-fee" label="Fee" allowSlab tryIt value={fee} onChange={setFee} />
               </Field>
             ) : null}
             {uses.commission ? (

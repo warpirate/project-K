@@ -97,9 +97,12 @@ export default async function HomePage() {
     };
   });
   const totalEarning = rows.reduce((s, r) => s + r.earning, 0);
+  // A reversal of an entry shown today is already told by the struck-through original; show it once.
+  const shownIds = new Set(rows.map((r) => r.id));
+  const visible = rows.filter((r) => !(r.reversalOf && shownIds.has(r.reversalOf)));
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       <EntryForm
         shopId={ctx.profile.shop_id}
         branchId={ctx.branchId}
@@ -110,7 +113,7 @@ export default async function HomePage() {
         payButtons={branch?.pay_buttons ?? null}
         defaultPay={branch?.default_pay ?? null}
       />
-      <TodayList rows={rows} totalEarning={totalEarning} />
+      <TodayList rows={visible} totalEarning={totalEarning} />
     </div>
   );
 }

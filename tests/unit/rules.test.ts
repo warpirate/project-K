@@ -105,9 +105,27 @@ describe("charge by amount (slabs)", () => {
     expect(() => slabsFromRows([{ upto: "", value: "10" }, { upto: "", value: "20" }])).toThrow(/up to/);
     expect(() => slabsFromRows([{ upto: "5000", value: "10" }, { upto: "1000", value: "20" }, { upto: "", value: "30" }])).toThrow(/go up/);
   });
+  it("rows can be a percent: up to ₹1,000 → ₹10, above → 1%", () => {
+    const rule = slabsFromRows([
+      { upto: "1000", value: "10" },
+      { upto: "", value: "1", mode: "percent" },
+    ]);
+    expect(rule).toEqual({ type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, bps: 100 }] });
+    expect(calcRule(rule, 9000)).toBe(1000); // ₹90 → ₹10
+    expect(calcRule(rule, 500000)).toBe(5000); // ₹5,000 → ₹50
+    expect(describeRule(rule)).toBe("up to ₹1,000.00: ₹10.00, above: 1%");
+    expect(ruleFromDraft(ruleToDraft(rule))).toEqual(rule);
+  });
   it("round-trips through drafts", () => {
     expect(ruleFromDraft(ruleToDraft(slab))).toEqual(slab);
-    expect(ruleToDraft(slab)).toEqual({ mode: "slab", value: "", slabs: [{ upto: "1000", value: "10" }, { upto: "", value: "20" }] });
+    expect(ruleToDraft(slab)).toEqual({
+      mode: "slab",
+      value: "",
+      slabs: [
+        { upto: "1000", value: "10", mode: "fixed" },
+        { upto: "", value: "20", mode: "fixed" },
+      ],
+    });
     expect(ruleFromDraft(ruleToDraft({ type: "percent", bps: 100 }))).toEqual({ type: "percent", bps: 100 });
   });
 });

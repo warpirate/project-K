@@ -114,12 +114,28 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await expect(page.getByRole("button", { name: /AEPS withdrawal.*charge ₹10.00/ })).toBeVisible();
   // ...then make the charge grow with the amount
   await page.getByRole("button", { name: /AEPS withdrawal/ }).click();
-  await page.getByRole("radio", { name: "By amount" }).click();
+  await page.getByRole("radiogroup", { name: "Charge type" }).getByRole("radio", { name: "By amount" }).click();
   await page.getByLabel("Charge up to amount 1").fill("1000");
   await page.getByLabel("Charge for amount 1").fill("10");
-  await page.getByLabel("Charge above").fill("20");
+  await page.getByRole("radio", { name: "Row 2 percent" }).click();
+  await page.getByLabel("Charge above").fill("1");
+  await page.getByLabel(/Try an amount/).fill("90");
+  await expect(page.getByText("→ Charge ₹10.00")).toBeVisible();
+  await page.getByLabel(/Try an amount/).fill("5000");
+  await expect(page.getByText("→ Charge ₹50.00")).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("button", { name: /AEPS withdrawal.*up to ₹1,000.00: ₹10.00, above: ₹20.00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /AEPS withdrawal.*up to ₹1,000.00: ₹10.00, above: 1%/ })).toBeVisible();
+  // On New entry the charge is already worked out, and can be changed for this one entry
+  await page.goto("/");
+  await page.getByPlaceholder(/Type a service/).fill("aeps");
+  await page.getByRole("option", { name: /AEPS withdrawal/ }).click();
+  await page.getByLabel("Withdrawal amount (₹)").fill("5000");
+  await expect(page.getByLabel("Your charge")).toHaveValue("50");
+  await page.getByLabel("Your charge").fill("30");
+  await expect(page.getByText("₹4,970.00")).toBeVisible();
+  await page.getByRole("button", { name: "use usual ₹50.00" }).click();
+  await expect(page.getByText("₹4,950.00")).toBeVisible();
+  await page.goto("/settings");
   await page.getByRole("tab", { name: "Staff" }).click();
   const username = `st${randomUUID().slice(0, 6)}`;
   await page.getByLabel("Staff name").fill("Suresh");

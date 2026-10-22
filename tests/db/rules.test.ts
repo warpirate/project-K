@@ -24,6 +24,13 @@ describe("calc_rule", () => {
     expect(await calc(rule, 100001)).toBe(2000);
   });
 
+  it("slab rows can be a percent: up to ₹1,000 → ₹10, above → 1%", async () => {
+    const rule = { type: "slab", slabs: [{ upto: 100000, value: 1000 }, { upto: null, bps: 100 }] };
+    expect(await calc(rule, 9000)).toBe(1000);
+    expect(await calc(rule, 100000)).toBe(1000);
+    expect(await calc(rule, 500000)).toBe(5000);
+  });
+
   it("rejects unknown rule types", async () => {
     const { error } = await admin.rpc("calc_rule", { p_rule: { type: "magic" }, p_amount: 100 });
     expect(error?.message).toMatch(/unknown rule type/);

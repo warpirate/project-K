@@ -3,7 +3,10 @@ import { formatINR } from "@/lib/money";
 export type Rule =
   | { type: "fixed"; value: number }
   | { type: "percent"; bps: number }
-  | { type: "slab"; slabs: ReadonlyArray<{ upto: number | null; value: number }> };
+  | { type: "slab"; slabs: ReadonlyArray<Slab> };
+
+/** One charge-by-amount row: a flat rupee charge (`value`, paise) or a percent (`bps`). */
+export type Slab = { upto: number | null; value: number } | { upto: number | null; bps: number };
 
 export type Flow = "cash_out" | "cash_in" | "pay_through" | "application" | "counter_sale";
 
@@ -18,7 +21,7 @@ export function calcRule(rule: Rule | null | undefined, amount: number): number 
     case "slab": {
       const hit = rule.slabs.find((s) => s.upto === null || amount <= s.upto);
       if (!hit) throw new Error(`no slab matches amount ${amount}`);
-      return hit.value;
+      return "bps" in hit ? Math.round((amount * hit.bps) / 10000) : hit.value;
     }
   }
 }
@@ -50,6 +53,8 @@ export type RuleMode = "none" | "fixed" | "percent" | "slab";
 export interface SlabRow {
   upto: string;
   value: string;
+  /** "fixed" = ₹ charge, "percent" = % of the amount. Missing means ₹. */
+  mode?: "fixed" | "percent";
 }
 
 /** What a rule box holds while being edited. `slabs` is used when mode is "slab". */
@@ -90,7 +95,7 @@ const rupeeNumber = (v: string) => Number(v.replace(/,/g, "").trim());
  */
 export function slabsFromRows(rows: SlabRow[]): Rule | null {
   if (rows.length === 0 || rows.every((r) => r.value.trim() === "")) return null;
-  const slabs: { upto: number | null; value: number }[] = [];
+  const slabs: Slab[] = [];
   let prev = 0;
   rows.forEach((r, i) => {
     const last = i === rows.length - 1;
@@ -104,7 +109,12 @@ export function slabsFromRows(rows: SlabRow[]): Rule | null {
       if (upto <= prev) throw new Error("“Up to” amounts must go up, like 1000, then 5000, then 10000");
       prev = upto;
     }
-    slabs.push({ upto, value: Math.round(value * 100) });
+    if (r.mode === "percent") {
+      if (value > 100) throw new Error("Percent must be 100 or less");
+      slabs.push({ upto, bps: Math.round(value * 100) });
+    } else {
+      slabs.push({ upto, value: Math.round(value * 100) });
+    }
   });
   return { type: "slab", slabs };
 }
@@ -121,7 +131,10 @@ export function ruleToDraft(rule: Rule | null | undefined): RuleDraft {
   return {
     mode: "slab",
     value: "",
-    slabs: rule.slabs.map((s) => ({ upto: s.upto === null ? "" : trim(s.upto), value: trim(s.value) })),
+    slabs: rule.slabs.map((s) => ({
+      upto: s.upto === null ? "" : trim(s.upto),
+      ...("bps" in s ? { mode: "percent" as const, value: String(Number((s.bps / 100).toFixed(2))) } : { mode: "fixed" as const, value: trim(s.value) }),
+    })),
   };
 }
 
@@ -130,7 +143,8 @@ export function describeRule(rule: Rule | null | undefined): string {
   if (!rule) return "none";
   if (rule.type === "fixed") return formatINR(rule.value);
   if (rule.type === "percent") return `${Number((rule.bps / 100).toFixed(2))}%`;
+  const charge = (s: Slab) => ("bps" in s ? `${Number((s.bps / 100).toFixed(2))}%` : formatINR(s.value));
   return rule.slabs
-    .map((s, i) => (s.upto === null ? `${i === 0 ? "" : "above: "}${formatINR(s.value)}` : `up to ${formatINR(s.upto)}: ${formatINR(s.value)}`))
+    .map((s, i) => (s.upto === null ? `${i === 0 ? "" : "above: "}${charge(s)}` : `up to ${formatINR(s.upto)}: ${charge(s)}`))
     .join(", ");
 }

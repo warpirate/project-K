@@ -108,7 +108,7 @@ export default async function DashboardPage({
         </div>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="font-display text-xl">Profit by service</h2>
           <div className="mt-4">

@@ -37,6 +37,8 @@ function writeStored(key: string, value: string) {
   }
 }
 
+const rupeesText = (paise: number) => (paise / 100).toFixed(2).replace(/\.00$/, "");
+
 /** Optional rupee box: "" → null (use default); invalid → undefined. */
 function optionalPaise(v: string): number | null | undefined {
   if (v.trim() === "") return null;
@@ -89,6 +91,8 @@ export function EntryForm({
   const [walletId, setWalletId] = useState("");
   const [showCharges, setShowCharges] = useState(false);
   const [feeText, setFeeText] = useState("");
+  // The charge box shows the usual charge until someone types over it.
+  const [feeEdited, setFeeEdited] = useState(false);
   const [commissionText, setCommissionText] = useState("");
   const [costText, setCostText] = useState("");
   const buttons = useMemo(() => branchPayButtons(payButtons, accounts), [payButtons, accounts]);
@@ -138,7 +142,7 @@ export function EntryForm({
     }
   }, [service, amountPaise]);
 
-  const feeO = optionalPaise(feeText);
+  const feeO = feeEdited ? (feeText.trim() === "" ? 0 : optionalPaise(feeText)) : null;
   const comO = optionalPaise(commissionText);
   const costO = optionalPaise(costText);
   const receivedO = optionalPaise(receivedText);
@@ -152,6 +156,7 @@ export function EntryForm({
   const pick = (s: ServiceOption) => {
     setService(s);
     setFeeText("");
+    setFeeEdited(false);
     setCommissionText("");
     setCostText("");
     setShowCharges(false);
@@ -168,6 +173,7 @@ export function EntryForm({
     setService(null);
     setAmount("");
     setFeeText("");
+    setFeeEdited(false);
     setCommissionText("");
     setCostText("");
     setShowCharges(false);
@@ -311,13 +317,41 @@ export function EntryForm({
                     {formatINR(preview.customerTotal)}
                   </span>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
+                {uses.fee ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule pt-3">
+                    <label htmlFor="fee" className="text-sm font-medium" title={copy.charge}>
+                      Your charge
+                    </label>
+                    <div className="flex items-center overflow-hidden rounded-lg border border-rule-strong bg-raised focus-within:border-accent">
+                      <span className="px-2 text-ink-soft">₹</span>
+                      <Input
+                        id="fee"
+                        inputMode="decimal"
+                        className="money min-h-10 w-24 rounded-none border-0 px-1 text-lg font-semibold focus:border-0"
+                        value={feeEdited ? feeText : rupeesText(auto.fee)}
+                        onChange={(e) => {
+                          setFeeEdited(true);
+                          setFeeText(e.target.value);
+                        }}
+                        onFocus={(e) => e.target.select()}
+                      />
+                    </div>
+                    {feeEdited && feeO !== auto.fee ? (
+                      <button type="button" onClick={() => setFeeEdited(false)} className="text-sm text-accent underline-offset-4 hover:underline">
+                        use usual {formatINR(auto.fee)}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-ink-soft">usual charge · type to change</span>
+                    )}
+                  </div>
+                ) : null}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="text-ink-soft">
                     You earn <span className="money font-medium text-ink">{formatINR(preview.earning)}</span>
                   </span>
-                  {(uses.fee || uses.portalCost) && !showCharges ? (
+                  {(uses.commission || uses.portalCost) && !showCharges ? (
                     <button type="button" onClick={() => setShowCharges(true)} className="text-accent underline-offset-4 hover:underline">
-                      {uses.fee ? (fee > 0 ? `Charge ${formatINR(fee)} · change` : "Add your charge") : "Portal fee · change"}
+                      {uses.commission ? "Portal commission · change" : "Portal fee · change"}
                     </button>
                   ) : null}
                 </div>
@@ -326,11 +360,6 @@ export function EntryForm({
 
             {showCharges ? (
               <div className="grid gap-4 rounded-xl border border-dashed border-rule-strong p-4 sm:grid-cols-2">
-                {uses.fee ? (
-                  <Field label={copy.charge} htmlFor="fee" hint="Leave empty to use your usual charge">
-                    <Input id="fee" inputMode="decimal" className="money" placeholder={(auto.fee / 100).toFixed(2)} value={feeText} onChange={(e) => setFeeText(e.target.value)} />
-                  </Field>
-                ) : null}
                 {uses.commission ? (
                   <Field label="Portal commission to you" htmlFor="commission" hint="What the portal pays you. Usually automatic.">
                     <Input

@@ -167,12 +167,12 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
         </Field>
         {uses.fee ? (
           <Field label="Your charge from customer" htmlFor={`fee-${service.id}`} hint={fee.mode === "slab" ? "Bigger amount, bigger charge. The last row covers everything above." : "Empty = no charge. Use “By amount” if the charge grows with the amount."}>
-            <RuleInput id={`fee-${service.id}`} label="Charge" allowSlab value={fee} onChange={setFee} />
+            <RuleInput id={`fee-${service.id}`} label="Charge" allowSlab tryIt value={fee} onChange={setFee} />
           </Field>
         ) : null}
         {uses.commission ? (
           <Field label="Commission from portal" htmlFor={`com-${service.id}`} hint="Empty = none">
-            <RuleInput id={`com-${service.id}`} label="Commission" value={commission} onChange={setCommission} />
+            <RuleInput id={`com-${service.id}`} label="Commission" allowSlab value={commission} onChange={setCommission} />
           </Field>
         ) : null}
         {uses.portalCost ? (
@@ -210,7 +210,7 @@ const TYPES = { cash: "Cash", wallet: "Portal wallet", bank: "Bank / UPI" } as c
 
 function AccountsSettings({ shopId, branches, accounts, payConfig }: { shopId: string; branches: Branch[]; accounts: AccountRow[]; payConfig: PayConfig }) {
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
       {branches.map((b) => (
         <Card key={b.id}>
           <h2 className="font-display text-xl">{b.name}</h2>

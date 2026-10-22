@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, X } from "lucide-react";
-import { emptySlabs, type RuleDraft, type SlabRow } from "@/lib/rules";
-import { Input } from "@/components/ui";
+import { formatINR, rupeesToPaise } from "@/lib/money";
+import { calcRule, emptySlabs, ruleFromDraft, type RuleDraft, type SlabRow } from "@/lib/rules";
+import { Input, cx } from "@/components/ui";
 
 export type { RuleDraft };
 
@@ -18,6 +20,7 @@ export function RuleInput({
   onChange,
   allowPercent = true,
   allowSlab = false,
+  tryIt = false,
   label,
 }: {
   id: string;
@@ -25,8 +28,11 @@ export function RuleInput({
   onChange: (v: RuleDraft) => void;
   allowPercent?: boolean;
   allowSlab?: boolean;
+  /** Show a "Try an amount" box that works out the charge as you type. */
+  tryIt?: boolean;
   label: string;
 }) {
+  const [tryAmount, setTryAmount] = useState("");
   const modes = (["fixed", "percent", "slab"] as const).filter((m) => (m === "percent" ? allowPercent : m === "slab" ? allowSlab : true));
   const modeLabel = { fixed: "₹", percent: "%", slab: "By amount" } as const;
   const slab = value.mode === "slab";
@@ -90,7 +96,22 @@ export function RuleInput({
                     />
                   </label>
                 )}
-                <span className="text-ink-soft">→ ₹</span>
+                <span className="text-ink-soft">→</span>
+                <div role="radiogroup" aria-label={`${label} row ${i + 1} type`} className="flex shrink-0 overflow-hidden rounded-md border border-rule-strong">
+                  {(["fixed", "percent"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={(r.mode ?? "fixed") === m}
+                      aria-label={m === "fixed" ? `Row ${i + 1} rupees` : `Row ${i + 1} percent`}
+                      onClick={() => update({ mode: m })}
+                      className={cx("min-h-9 w-8 text-sm font-medium", (r.mode ?? "fixed") === m ? "bg-accent text-accent-ink" : "text-ink-soft")}
+                    >
+                      {m === "fixed" ? "₹" : "%"}
+                    </button>
+                  ))}
+                </div>
                 <Input
                   aria-label={last ? `${label} above` : `${label} for amount ${i + 1}`}
                   inputMode="decimal"
@@ -118,6 +139,28 @@ export function RuleInput({
           </button>
         </div>
       ) : null}
+
+      {tryIt ? <TryAmount draft={value} amount={tryAmount} onAmount={setTryAmount} /> : null}
     </div>
+  );
+}
+
+/** "Try ₹5000 → charge ₹50": checks the rule while it is being typed. */
+function TryAmount({ draft, amount, onAmount }: { draft: RuleDraft; amount: string; onAmount: (v: string) => void }) {
+  const paise = rupeesToPaise(amount);
+  let result: string | null = null;
+  if (paise) {
+    try {
+      result = `Charge ${formatINR(calcRule(ruleFromDraft(draft), paise))}`;
+    } catch (e) {
+      result = (e as Error).message;
+    }
+  }
+  return (
+    <label className="flex items-center gap-2 rounded-lg bg-paper px-3 py-2 text-sm">
+      <span className="shrink-0 text-ink-soft">Try an amount ₹</span>
+      <Input inputMode="decimal" placeholder="5000" value={amount} onChange={(e) => onAmount(e.target.value)} className="money min-h-9 max-w-28 px-2" />
+      {result ? <span className="font-medium">→ {result}</span> : null}
+    </label>
   );
 }

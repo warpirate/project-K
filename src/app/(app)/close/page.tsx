@@ -29,7 +29,7 @@ export default async function ClosePage() {
   const t = totals?.[0];
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
       <Card>
         <h1 className="font-display text-2xl">Close the day</h1>
         <p className="mt-1 text-ink-soft">Count the cash in the drawer and type it. The app tells you if anything is short or extra.</p>

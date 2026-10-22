@@ -93,5 +93,5 @@ test("owner signs up, sets up the shop, records and reverses entries", async ({ 
   await page.getByLabel("Reason").fill("test reversal");
   await page.getByRole("dialog").getByRole("button", { name: "Reverse", exact: true }).click();
   await expect(today.getByText("Reversed: test reversal")).toBeVisible();
-  await expect(today.getByText("Reversal: Xerox")).toBeVisible();
+  await expect(today.getByText("Reversal: Xerox")).toHaveCount(0); // shown once, as the struck-through original
 });

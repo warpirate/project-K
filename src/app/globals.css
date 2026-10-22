@@ -76,9 +76,20 @@ html {
   color: var(--ink);
   font-family: var(--font-onest), sans-serif;
   -webkit-tap-highlight-color: transparent;
+  /* Keep focused fields clear of the sticky header and, on phones, the Save bar + bottom nav. */
+  scroll-padding-top: 8rem;
+  scroll-padding-bottom: 10rem;
+}
+
+@media (min-width: 768px) {
+  html {
+    scroll-padding-bottom: 6rem;
+  }
 }
 
 body {
+  /* Never scroll sideways on phones; clip (not hidden) keeps sticky header/bars working. */
+  overflow-x: clip;
   min-height: 100dvh;
   background:
     linear-gradient(var(--paper), var(--paper)) padding-box,
