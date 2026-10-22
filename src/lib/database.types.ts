@@ -605,6 +605,17 @@ export type Database = {
         }
         Returns: string
       }
+      post_udhaar_given: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_branch_id: string
+          p_client_id: string
+          p_customer_id: string
+          p_note?: string
+        }
+        Returns: string
+      }
       post_udhaar_payment: {
         Args: {
           p_account_id: string
@@ -664,6 +675,7 @@ export type Database = {
         | "udhaar_payment"
         | "opening_balance"
         | "reversal"
+        | "udhaar_given"
       user_role: "owner" | "staff"
     }
     CompositeTypes: {
@@ -810,6 +822,7 @@ export const Constants = {
         "udhaar_payment",
         "opening_balance",
         "reversal",
+        "udhaar_given",
       ],
       user_role: ["owner", "staff"],
     },

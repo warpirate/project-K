@@ -107,3 +107,48 @@ describe("customer dues across branches", () => {
     expect(await dueOf(f.staff, customer)).toBe(3000);
   });
 });
+
+describe("post_udhaar_given", () => {
+  it("customer takes cash: due goes up, cash goes down, no earning", async () => {
+    const customer = await insertId(f.staff, "customers", { shop_id: f.shopId, name: "Salim", phone: "9000000004" });
+    const id = await rpc(f.staff, "post_udhaar_given", {
+      p_branch_id: f.branch1, p_customer_id: customer, p_account_id: f.cash1, p_amount: 50000,
+    });
+    expect(await dueOf(f.staff, customer)).toBe(50000);
+    expect(await balanceOf(f.staff, f.cash1)).toBe(-50000);
+    const row = await txnRow(f.staff, id);
+    expect(row.earning).toBe(0);
+    expect(row.kind).toBe("udhaar_given");
+  });
+
+  it("hands back an advance", async () => {
+    const customer = await insertId(f.staff, "customers", { shop_id: f.shopId, name: "Imran", phone: "9000000005" });
+    await rpc(f.staff, "post_udhaar_payment", {
+      p_branch_id: f.branch1, p_customer_id: customer, p_account_id: f.cash1, p_amount: 2000,
+    });
+    expect(await dueOf(f.staff, customer)).toBe(-2000);
+    await rpc(f.staff, "post_udhaar_given", {
+      p_branch_id: f.branch1, p_customer_id: customer, p_account_id: f.cash1, p_amount: 2000,
+    });
+    expect(await dueOf(f.staff, customer)).toBe(0);
+    expect(await balanceOf(f.staff, f.cash1)).toBe(0);
+  });
+
+  it("can be reversed", async () => {
+    const customer = await insertId(f.staff, "customers", { shop_id: f.shopId, name: "Raju", phone: "9000000006" });
+    const id = await rpc(f.staff, "post_udhaar_given", {
+      p_branch_id: f.branch1, p_customer_id: customer, p_account_id: f.cash1, p_amount: 1000,
+    });
+    await rpc(f.staff, "reverse_transaction", { p_transaction_id: id, p_reason: "wrong person" });
+    expect(await dueOf(f.staff, customer)).toBe(0);
+    expect(await balanceOf(f.staff, f.cash1)).toBe(0);
+  });
+
+  it("staff cannot give from another branch's account", async () => {
+    const customer = await insertId(f.staff, "customers", { shop_id: f.shopId, name: "Babu", phone: "9000000007" });
+    const { error } = await f.staff.rpc("post_udhaar_given", {
+      p_client_id: randomUUID(), p_branch_id: f.branch2, p_customer_id: customer, p_account_id: f.cash2, p_amount: 1000,
+    });
+    expect(error?.message).toMatch(/no access/);
+  });
+});

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { searchServices, shouldOfferCreate } from "@/lib/services";
 import { flowLabel } from "@/lib/flows";
+import { FLOW_ICON, IconTile } from "@/components/icons";
 import type { ServiceOption } from "./types";
 
 /**
@@ -47,10 +48,13 @@ export function ServicePicker({
               onPick(s);
               setQuery("");
             }}
-            className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg px-3 data-[selected=true]:bg-accent-soft"
+            className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-lg px-2 data-[selected=true]:bg-accent-soft"
           >
-            <span className="font-medium">{s.name}</span>
-            <span className="text-xs text-ink-soft">{flowLabel(s.flow)}</span>
+            <span className="flex min-w-0 items-center gap-3">
+              <IconTile icon={FLOW_ICON[s.flow]} size="sm" />
+              <span className="truncate font-medium">{s.name}</span>
+            </span>
+            <span className="shrink-0 text-xs text-ink-soft">{flowLabel(s.flow)}</span>
           </Command.Item>
         ))}
         {canCreate ? (

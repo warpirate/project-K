@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { Check, ChevronDown, ListChecks, Plus, Store, Users, Wallet } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Select, Tabs, cx } from "@/components/ui";
+import { ACCOUNT_ICON, FLOW_ICON, IconTile } from "@/components/icons";
 import { RuleInput, type RuleDraft } from "@/components/rule-input";
 import { FLOWS, flowLabel, flowUses } from "@/lib/flows";
 import { describeRule, ruleFromInput, ruleToInput, type Flow } from "@/lib/rules";
@@ -42,10 +43,10 @@ export function SettingsTabs({
           value={tab}
           onChange={setTab}
           tabs={[
-            { value: "services", label: toReview ? `Services (${toReview} new)` : "Services" },
-            { value: "accounts", label: "Cash & wallets" },
-            { value: "branches", label: "Branches" },
-            { value: "staff", label: "Staff" },
+            { value: "services", label: toReview ? `Services (${toReview} new)` : "Services", icon: <ListChecks size={16} aria-hidden /> },
+            { value: "accounts", label: "Cash & wallets", icon: <Wallet size={16} aria-hidden /> },
+            { value: "branches", label: "Branches", icon: <Store size={16} aria-hidden /> },
+            { value: "staff", label: "Staff", icon: <Users size={16} aria-hidden /> },
           ]}
         />
       </div>
@@ -82,6 +83,7 @@ function ServicesSettings({ services }: { services: ServiceRow[] }) {
               aria-expanded={open === s.id}
               className="flex min-h-14 w-full items-center gap-3 px-5 py-2 text-left hover:bg-paper"
             >
+              <IconTile icon={FLOW_ICON[s.flow]} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className={cx("block font-medium", !s.active && "text-ink-soft line-through")}>{s.name}</span>
                 <span className="block text-sm text-ink-soft">
@@ -230,6 +232,7 @@ function AccountItem({ account }: { account: AccountRow }) {
   return (
     <li className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
+        <IconTile icon={ACCOUNT_ICON[account.type]} size="sm" />
         <Input aria-label="Account name" value={name} onChange={(e) => setName(e.target.value)} className={cx(!account.active && "line-through opacity-60")} />
         <span className="hidden w-28 shrink-0 text-xs text-ink-soft sm:block">{TYPES[account.type]}</span>
         {name.trim() !== account.name ? (

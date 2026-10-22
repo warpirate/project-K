@@ -2,8 +2,10 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Undo2 } from "lucide-react";
+import { CircleDot, Undo2 } from "lucide-react";
 import { Banner, Button, Card, Input, cx } from "@/components/ui";
+import { FLOW_ICON, IconTile, KIND_ICON } from "@/components/icons";
+import type { Flow } from "@/lib/rules";
 import { formatINR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,6 +14,10 @@ export interface TodayRow {
   time: string;
   title: string;
   kind: string;
+  /** Service type for service entries, else null. */
+  flow: Flow | null;
+  /** transactions.kind, or "reversal" for reversals. */
+  entryKind: string;
   amount: number;
   earning: number;
   payment: string;
@@ -68,9 +74,22 @@ export function TodayList({ rows, totalEarning }: { rows: TodayRow[]; totalEarni
         <ul className="divide-y divide-rule">
           {rows.map((r) => {
             const struck = !!r.reversedBy;
+            const icon = r.flow ? FLOW_ICON[r.flow] : (KIND_ICON[r.entryKind] ?? CircleDot);
+            const tone =
+              r.entryKind === "reversal" || struck
+                ? "plain"
+                : r.entryKind === "expense" || r.entryKind === "udhaar_given"
+                  ? "out"
+                  : r.entryKind === "service" || r.entryKind === "udhaar_payment"
+                    ? "in"
+                    : "plain";
+            const showEarning = r.flow !== null || r.earning !== 0;
             return (
               <li key={r.id} className={cx("flex gap-3 px-5 py-3", r.reversalOf && "bg-danger-soft/40")}>
-                <span className="money w-12 shrink-0 pt-0.5 text-sm text-ink-soft">{r.time}</span>
+                <span className="flex w-12 shrink-0 flex-col items-center gap-1">
+                  <IconTile icon={icon} tone={tone} size="sm" />
+                  <span className="money text-xs text-ink-soft">{r.time}</span>
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className={cx("font-medium", struck && "text-ink-soft line-through")}>{r.title}</p>
                   <p className="truncate text-sm text-ink-soft">
@@ -82,10 +101,12 @@ export function TodayList({ rows, totalEarning }: { rows: TodayRow[]; totalEarni
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={cx("money font-semibold", struck && "text-ink-soft line-through")}>{formatINR(r.amount)}</span>
-                  <span className={cx("money text-xs", r.earning < 0 ? "text-out" : "text-in")}>
-                    {r.earning >= 0 ? "+" : ""}
-                    {formatINR(r.earning)}
-                  </span>
+                  {showEarning ? (
+                    <span className={cx("money text-xs", r.earning < 0 ? "text-out" : "text-in")}>
+                      {r.earning >= 0 ? "+" : ""}
+                      {formatINR(r.earning)}
+                    </span>
+                  ) : null}
                   {!r.reversalOf && !r.reversedBy ? (
                     <button
                       type="button"

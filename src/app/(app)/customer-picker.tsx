@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { UserPlus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
+import { PHONE_ERROR, cleanPhone } from "@/lib/phone";
 import { normalizeName } from "@/lib/services";
 import { createClient } from "@/lib/supabase/client";
 import type { CustomerOption } from "./types";
@@ -49,10 +50,12 @@ export function CustomerPicker({
     setError(undefined);
     const name = q.trim();
     if (!name) return setError("Type the customer name first");
+    const cleaned = cleanPhone(phone);
+    if (cleaned === null) return setError(PHONE_ERROR);
     const supabase = createClient();
     const { data, error: err } = await supabase
       .from("customers")
-      .insert({ shop_id: shopId, name, phone: phone.trim() || null })
+      .insert({ shop_id: shopId, name, phone: cleaned || null })
       .select("id, name, phone")
       .single();
     if (err) return setError(/duplicate|unique/i.test(err.message) ? "A customer with this phone already exists" : err.message);

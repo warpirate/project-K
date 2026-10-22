@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Check, Plus, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Banknote, BookUser, Check, Plus, Smartphone, Split, Trash2 } from "lucide-react";
+import { FLOW_ICON, IconTile } from "@/components/icons";
 import { Banner, Button, Card, Field, Input, Select, cx } from "@/components/ui";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import { calcRule, previewEntry } from "@/lib/rules";
@@ -16,6 +17,7 @@ import { CustomerPicker } from "./customer-picker";
 import type { AccountOption, CustomerOption, ServiceOption } from "./types";
 
 const PAY_LABEL: Record<PayMode, string> = { cash: "Cash", upi: "UPI", udhaar: "Udhaar", split: "Mixed" };
+const PAY_ICON = { cash: Banknote, upi: Smartphone, udhaar: BookUser, split: Split } as const;
 
 const walletKey = (branchId: string, serviceId: string) => `pk:wallet:${branchId}:${serviceId}`;
 
@@ -248,9 +250,12 @@ export function EntryForm({
 
         {service && copy ? (
           <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-accent bg-accent-soft px-4 py-3">
-            <div>
-              <p className="text-lg font-semibold">{service.name}</p>
-              <p className="text-sm text-ink-soft">{flowLabel(service.flow)}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <IconTile icon={FLOW_ICON[service.flow]} tone="accent" />
+              <div className="min-w-0">
+                <p className="truncate text-lg font-semibold">{service.name}</p>
+                <p className="text-sm text-ink-soft">{flowLabel(service.flow)}</p>
+              </div>
             </div>
             <Button type="button" variant="ghost" onClick={() => setService(null)}>
               <ArrowLeftRight size={16} /> Change
@@ -338,29 +343,33 @@ export function EntryForm({
 
             <Field label={copy.pay}>
               <div role="radiogroup" className={cx("grid gap-2", modes.length === 2 ? "grid-cols-2" : "grid-cols-4")}>
-                {modes.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={payMode === m}
-                    onClick={() => {
-                      setPayMode(m);
-                      if (m === "udhaar") setShowCustomer(true);
-                    }}
-                    className={cx(
-                      "min-h-12 rounded-lg border text-[15px] font-medium transition",
-                      payMode === m ? "border-accent bg-accent text-accent-ink" : "border-rule-strong bg-raised text-ink hover:border-ink-soft",
-                    )}
-                  >
-                    {PAY_LABEL[m]}
-                  </button>
-                ))}
+                {modes.map((m) => {
+                  const Icon = PAY_ICON[m];
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={payMode === m}
+                      onClick={() => {
+                        setPayMode(m);
+                        if (m === "udhaar") setShowCustomer(true);
+                      }}
+                      className={cx(
+                        "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 text-[15px] font-medium transition sm:flex-row sm:gap-2",
+                        payMode === m ? "border-accent bg-accent text-accent-ink" : "border-rule-strong bg-raised text-ink hover:border-ink-soft",
+                      )}
+                    >
+                      <Icon size={17} aria-hidden />
+                      {PAY_LABEL[m]}
+                    </button>
+                  );
+                })}
               </div>
             </Field>
 
             {(payMode === "upi" || (payMode === "split" && parts.some((p) => p.kind === "upi"))) && banks.length > 1 ? (
-              <Field label="UPI received in" htmlFor="upi">
+              <Field label={givesCash ? "UPI sent from" : "UPI received in"} htmlFor="upi">
                 <Select id="upi" value={upiId} onChange={(e) => setUpiId(e.target.value)}>
                   {banks.map((b) => (
                     <option key={b.id} value={b.id}>

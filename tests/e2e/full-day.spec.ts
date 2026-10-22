@@ -50,8 +50,17 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await expect(page.getByText("₹20.00 received from Ramesh")).toBeVisible();
   await expect(page.getByText("₹30.00").filter({ visible: true }).first()).toBeVisible(); // panel balance (list hides on phones)
 
-  // Money: expense ₹10, move ₹100 cash → bank, fix PayNearby to ₹9,000
+  // Ramesh also takes ₹200 cash as udhaar (no purchase) → owes ₹230
+  await page.getByRole("radio", { name: "Taking money" }).click();
+  await page.getByLabel("Amount given (₹)").fill("200");
+  await expect(page.getByText("They will owe you ₹230.00")).toBeVisible();
+  await page.getByRole("button", { name: "Save udhaar given" }).click();
+  await expect(page.getByText("₹200.00 given to Ramesh")).toBeVisible();
+  await expect(page.getByText("Took money")).toBeVisible();
+
+  // Money: udhaar shows next to balances; expense ₹10, move ₹100 cash → bank, fix PayNearby to ₹9,000
   await page.goto("/money");
+  await expect(page.getByRole("link", { name: /People owe you.*₹230.00/ })).toBeVisible();
   await page.getByLabel("Amount (₹)").fill("10");
   await page.getByLabel("What for? (optional)").fill("tea");
   await page.getByRole("button", { name: "Save expense" }).click();
@@ -66,13 +75,13 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await expect(page.getByText("-₹1,000.00")).toBeVisible();
   await page.getByRole("button", { name: "Save correct balance" }).click();
   await expect(page.getByText("Balance set to ₹9,000.00")).toBeVisible();
-  // drawer: 5000 + 20 (udhaar paid) − 10 − 100 = 4910
-  await expect(page.getByText("₹4,910.00").first()).toBeVisible();
+  // drawer: 5000 + 20 (udhaar paid) − 200 (udhaar given) − 10 − 100 = 4710
+  await expect(page.getByText("₹4,710.00").first()).toBeVisible();
 
   // Close day: count exactly what is expected
   await page.goto("/close");
   await expect(page.getByText("Should be in drawer")).toBeVisible();
-  await page.getByLabel("Cash you counted (₹)").fill("4910");
+  await page.getByLabel("Cash you counted (₹)").fill("4710");
   await expect(page.getByText("Matched ✓")).toBeVisible();
   await page.getByRole("button", { name: "Close the day" }).click();
   await expect(page.getByText("Today is closed.")).toBeVisible();
@@ -81,7 +90,7 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await page.goto("/dashboard");
   const totals = page.getByRole("region", { name: "Totals" });
   await expect(totals.getByText("₹40.00").first()).toBeVisible();
-  await expect(page.getByText(/Udhaar outstanding: ₹30.00/)).toBeVisible();
+  await expect(page.getByText(/Udhaar outstanding: ₹230.00/)).toBeVisible();
   const csv = await page.request.get("/dashboard/export?period=today&branch=all");
   expect(csv.status()).toBe(200);
   expect(await csv.text()).toContain("Xerox");

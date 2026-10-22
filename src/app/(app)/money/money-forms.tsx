@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowLeftRight, Receipt, Scale } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Select, Tabs } from "@/components/ui";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
@@ -19,10 +20,10 @@ type Tab = "expense" | "move" | "fix";
 
 export function MoneyForms({ branchId, isOwner, here, all }: { branchId: string; isOwner: boolean; here: Omit<Acct, "branchName">[]; all: Acct[] }) {
   const [tab, setTab] = useState<Tab>("expense");
-  const tabs: { value: Tab; label: string }[] = [
-    { value: "expense", label: "Expense" },
-    { value: "move", label: "Move money" },
-    ...(isOwner ? [{ value: "fix" as const, label: "Fix a balance" }] : []),
+  const tabs = [
+    { value: "expense" as const, label: "Expense", icon: <Receipt size={16} aria-hidden /> },
+    { value: "move" as const, label: "Move money", icon: <ArrowLeftRight size={16} aria-hidden /> },
+    ...(isOwner ? [{ value: "fix" as const, label: "Fix a balance", icon: <Scale size={16} aria-hidden /> }] : []),
   ];
   return (
     <Card>
@@ -76,7 +77,7 @@ function ExpenseForm({ branchId, accounts }: { branchId: string; accounts: Omit<
     >
       <p className="text-sm text-ink-soft">Money spent by the shop: tea, paper, rent, current bill…</p>
       <Field label="Amount (₹)" htmlFor="exp-amount">
-        <Input id="exp-amount" inputMode="decimal" className="money min-h-13 text-2xl" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+        <Input id="exp-amount" inputMode="decimal" className="money min-h-13 text-2xl" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
       {accounts.length > 1 ? (
         <Field label="Paid from" htmlFor="exp-from">

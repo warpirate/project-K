@@ -8,6 +8,7 @@ const KIND: Record<string, string> = {
   expense: "Expense",
   transfer: "Move money",
   udhaar_payment: "Udhaar paid back",
+  udhaar_given: "Udhaar given (money taken)",
   opening_balance: "Balance set",
   reversal: "Reversal",
 };

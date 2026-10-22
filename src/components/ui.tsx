@@ -120,7 +120,7 @@ export function Segmented<T extends string>({
   onChange,
   label,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; icon?: ReactNode }[];
   value: T;
   onChange: (v: T) => void;
   label: string;
@@ -135,10 +135,11 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
-            "min-h-12 rounded-lg border px-2 text-[15px] font-medium transition",
+            "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border px-2 text-[15px] font-medium transition",
             value === o.value ? "border-accent bg-accent text-accent-ink" : "border-rule-strong bg-raised text-ink hover:border-ink-soft",
           )}
         >
+          {o.icon}
           {o.label}
         </button>
       ))}
@@ -147,7 +148,7 @@ export function Segmented<T extends string>({
 }
 
 /** Pill tabs for switching between forms. */
-export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: string; icon?: ReactNode }[]; value: T; onChange: (v: T) => void }) {
   return (
     <div role="tablist" className="flex gap-1 overflow-x-auto rounded-full bg-paper p-1">
       {tabs.map((t) => (
@@ -158,10 +159,11 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { valu
           aria-selected={value === t.value}
           onClick={() => onChange(t.value)}
           className={cx(
-            "min-h-10 shrink-0 rounded-full px-4 text-[15px] font-medium transition",
+            "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] font-medium transition",
             value === t.value ? "bg-raised text-ink shadow-sm" : "text-ink-soft hover:text-ink",
           )}
         >
+          {t.icon}
           {t.label}
         </button>
       ))}

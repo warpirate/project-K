@@ -8,9 +8,10 @@ import type { AccountOption, CustomerOption, ServiceOption } from "./types";
 
 const KIND_TITLE: Record<string, string> = {
   expense: "Expense",
-  transfer: "Transfer",
-  udhaar_payment: "Udhaar payment",
-  opening_balance: "Opening balance",
+  transfer: "Move money",
+  udhaar_payment: "Udhaar paid back",
+  udhaar_given: "Udhaar given",
+  opening_balance: "Balance set",
 };
 
 const todayIST = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -30,6 +31,18 @@ function paymentSummary(lines: Line[], flow: Flow): string {
   const hasChange = flow !== "cash_out" && lines.some((l) => !l.customer_id && l.amount < 0 && l.accounts?.type === "cash");
   const unique = labels.filter((v, i, a) => a.indexOf(v) === i).join(" + ");
   return hasChange ? `${unique} (change given)` : unique;
+}
+
+/** Which account an expense, transfer or udhaar entry used: "Cash", "SBI", "Cash → SBI". */
+function accountSummary(lines: Line[], kind: string): string {
+  const name = (l: Line) => (l.accounts!.type === "cash" ? "Cash" : l.accounts!.name);
+  const acct = lines.filter((l) => l.accounts);
+  if (kind === "transfer") {
+    const from = acct.find((l) => l.amount < 0);
+    const to = acct.find((l) => l.amount > 0);
+    return from && to ? `${name(from)} → ${name(to)}` : "";
+  }
+  return acct.map(name).filter((v, i, a) => a.indexOf(v) === i).join(" + ");
 }
 
 export default async function HomePage() {
@@ -68,9 +81,11 @@ export default async function HomePage() {
       time: timeIST(t.created_at),
       title: t.reversal_of ? `Reversal: ${titleOf.get(t.reversal_of) ?? ""}` : titleOf.get(t.id)!,
       kind: flow ? flowLabel(flow) : t.kind,
+      flow: flow ?? null,
+      entryKind: t.reversal_of ? "reversal" : t.kind,
       amount: Number(t.amount),
       earning: Number(t.earning),
-      payment: t.kind === "service" && flow ? paymentSummary(lines, flow) : "",
+      payment: t.kind === "service" && flow ? paymentSummary(lines, flow) : t.reversal_of ? "" : accountSummary(lines, t.kind),
       customer: t.customers?.name ?? null,
       by: nameOf.get(t.created_by) ?? null,
       note: t.note,
