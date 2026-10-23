@@ -8,6 +8,14 @@ export function rupeesToPaise(input: string): number | null {
 
 const fmt = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** Balance for dropdowns and buttons: "₹9,778" (paise only when there are some). */
+export function shortINR(paise: number): string {
+  return formatINR(paise).replace(/.00$/, "");
+}
+
+/** Account name with its balance after it: "AXIS BANK · ₹3,000". */
+export const withBalance = (name: string, paise: number | undefined) => (paise === undefined ? name : `${name} · ${shortINR(paise)}`);
+
 /** 12345678 → "₹1,23,456.78"; negatives as "-₹198.00". */
 export function formatINR(paise: number): string {
   const sign = paise < 0 ? "-" : "";

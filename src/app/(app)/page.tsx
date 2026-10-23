@@ -57,9 +57,10 @@ export default async function HomePage() {
   }
   const supabase = await createClient();
 
-  const [services, accounts, customers, txns] = await Promise.all([
+  const [services, accounts, balances, customers, txns] = await Promise.all([
     supabase.from("services").select("id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule, price").eq("active", true).order("name"),
     supabase.from("accounts").select("id, name, type").eq("branch_id", ctx.branchId).eq("active", true).order("created_at"),
+    supabase.from("account_balances").select("account_id, balance").eq("branch_id", ctx.branchId),
     supabase.from("customers").select("id, name, phone").order("name").limit(2000),
     supabase
       .from("transactions")
@@ -120,7 +121,7 @@ export default async function HomePage() {
         branchId={ctx.branchId}
         isOwner={ctx.isOwner}
         services={(services.data ?? []) as unknown as ServiceOption[]}
-        accounts={(accounts.data ?? []) as AccountOption[]}
+        accounts={(accounts.data ?? []).map((a) => ({ ...a, balance: Number(balances.data?.find((b) => b.account_id === a.id)?.balance ?? 0) })) as AccountOption[]}
         customers={(customers.data ?? []) as CustomerOption[]}
         payButtons={branch?.pay_buttons ?? null}
         defaultPay={branch?.default_pay ?? null}

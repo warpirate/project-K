@@ -17,6 +17,8 @@ export interface AccountOption {
   id: string;
   name: string;
   type: "cash" | "wallet" | "bank";
+  /** Money in it now, in paise (shown next to the name). */
+  balance?: number;
 }
 
 export interface CustomerOption {

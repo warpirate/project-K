@@ -17,7 +17,7 @@ export default async function UdhaarPage() {
       branchId={ctx.branchId}
       customers={(dues ?? []).map((d) => ({ id: d.customer_id!, name: d.name!, phone: d.phone, due: Number(d.due) }))}
       cashId={accounts.find((a) => a.type === "cash")?.account_id}
-      banks={accounts.filter((a) => a.type === "bank").map((a) => ({ id: a.account_id, name: a.name }))}
+      banks={accounts.filter((a) => a.type === "bank").map((a) => ({ id: a.account_id, name: a.name, balance: a.balance }))}
     />
   );
 }

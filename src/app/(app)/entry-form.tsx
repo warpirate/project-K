@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Banknote, BookUser, Check, Plus, Smartphone, Split, Trash2 } from "lucide-react";
 import { ServiceGlyph } from "@/components/icons";
 import { Banner, Button, Card, Field, Input, Select, cx } from "@/components/ui";
-import { formatINR, rupeesToPaise } from "@/lib/money";
+import { formatINR, rupeesToPaise, shortINR, withBalance } from "@/lib/money";
 import { calcRule, previewEntry } from "@/lib/rules";
 import { flowCopy, flowLabel, flowUses } from "@/lib/flows";
 import { buildPayments, changeDue, type PartKind, type PayMode } from "@/lib/payments";
@@ -167,6 +167,13 @@ export function EntryForm({
   const giveTotal = preview ? preview.customerTotal + (separateCharge ? fee : 0) : 0;
   const chargeButtons = shownButtons; // withdrawals only show Cash and bank/UPI buttons
   const chargeButton = chargeButtons.find((b) => b.key === chargeBy) ?? chargeButtons[0];
+  /** Money in the account behind a Cash or bank/UPI button (none for Udhaar/Mixed). */
+  const balanceOf = (b: { mode: PayMode; accountId?: string }) =>
+    b.mode === "cash"
+      ? accounts.filter((a) => a.type === "cash").reduce<number | undefined>((s, a) => (a.balance === undefined ? s : (s ?? 0) + a.balance), undefined)
+      : b.mode === "upi"
+        ? accounts.find((a) => a.id === b.accountId)?.balance
+        : undefined;
 
   const pick = (s: ServiceOption) => {
     setService(s);
@@ -332,7 +339,7 @@ export function EntryForm({
                   <Select id="wallet" value={walletId} onChange={(e) => setWalletId(e.target.value)} className="min-h-13">
                     {walletChoices.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {w.name}
+                        {withBalance(w.name, w.balance)}
                       </option>
                     ))}
                   </Select>
@@ -482,7 +489,12 @@ export function EntryForm({
                       )}
                     >
                       <Icon size={17} aria-hidden className="shrink-0" />
-                      <span className="truncate">{b.label}</span>
+                      <span className="flex min-w-0 flex-col items-start leading-tight">
+                        <span className="max-w-full truncate">{b.label}</span>
+                        {balanceOf(b) !== undefined ? (
+                          <span className={cx("money text-xs font-normal", on ? "text-accent-ink/80" : "text-ink-soft")}>{shortINR(balanceOf(b)!)}</span>
+                        ) : null}
+                      </span>
                     </button>
                   );
                 })}
@@ -494,7 +506,7 @@ export function EntryForm({
                 <Select id="upi" value={upiId} onChange={(e) => setUpiId(e.target.value)}>
                   {banks.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.name}
+                      {withBalance(b.name, b.balance)}
                     </option>
                   ))}
                 </Select>

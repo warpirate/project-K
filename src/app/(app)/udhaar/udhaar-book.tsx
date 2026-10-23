@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Banknote, BookUser, CircleCheck, Phone, Search, Smartphone, UserPlus } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Segmented, Select, cx } from "@/components/ui";
 import { IconTile, KIND_ICON } from "@/components/icons";
-import { formatINR, rupeesToPaise } from "@/lib/money";
+import { formatINR, rupeesToPaise, withBalance } from "@/lib/money";
 import { PHONE_ERROR, cleanPhone } from "@/lib/phone";
 import { normalizeName } from "@/lib/services";
 import { createClient } from "@/lib/supabase/client";
@@ -38,7 +38,7 @@ export function UdhaarBook({
   branchId: string;
   customers: Customer[];
   cashId?: string;
-  banks: { id: string; name: string }[];
+  banks: { id: string; name: string; balance?: number }[];
 }) {
   const [q, setQ] = useState("");
   const [onlyDue, setOnlyDue] = useState(true);
@@ -239,7 +239,7 @@ function CustomerPanel({
   customer: Customer;
   branchId: string;
   cashId?: string;
-  banks: { id: string; name: string }[];
+  banks: { id: string; name: string; balance?: number }[];
   onBack: () => void;
 }) {
   const { busy, error, done, run, setError, setDone } = useSubmit();
@@ -426,7 +426,7 @@ function CustomerPanel({
               <Select aria-label={pay ? "UPI received in" : "UPI sent from"} value={bankId} onChange={(e) => setBankId(e.target.value)}>
                 {banks.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name}
+                    {withBalance(b.name, b.balance)}
                   </option>
                 ))}
               </Select>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowLeftRight, Receipt, Scale } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Select, Tabs } from "@/components/ui";
-import { formatINR, rupeesToPaise } from "@/lib/money";
+import { formatINR, rupeesToPaise, withBalance } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
 import { useSubmit } from "@/lib/use-submit";
 
@@ -84,7 +84,7 @@ function ExpenseForm({ branchId, accounts }: { branchId: string; accounts: Omit<
           <Select id="exp-from" value={from} onChange={(e) => setFrom(e.target.value)}>
             {accounts.map((a) => (
               <option key={a.account_id} value={a.account_id}>
-                {a.name}
+                {withBalance(a.name, a.balance)}
               </option>
             ))}
           </Select>
@@ -143,14 +143,14 @@ function MoveForm({ branchId, isOwner, all }: { branchId: string; isOwner: boole
               .filter((a) => a.branchName === b)
               .map((a) => (
                 <option key={a.account_id} value={a.account_id}>
-                  {a.name}
+                  {withBalance(a.name, a.balance)}
                 </option>
               ))}
           </optgroup>
         ))
       : list.map((a) => (
           <option key={a.account_id} value={a.account_id}>
-            {a.name}
+            {withBalance(a.name, a.balance)}
           </option>
         ));
 
