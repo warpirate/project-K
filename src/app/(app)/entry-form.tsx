@@ -20,6 +20,8 @@ import type { AccountOption, CustomerOption, ServiceOption } from "./types";
 const PAY_ICON = { cash: Banknote, upi: Smartphone, udhaar: BookUser, split: Split } as const;
 
 const walletKey = (branchId: string, serviceId: string) => `pk:wallet:${branchId}:${serviceId}`;
+/** Withdrawals: "apart:<button key>" when the customer pays the charge separately, "cut" when it comes off the cash. */
+const chargeKey = (branchId: string, serviceId: string) => `pk:charge:${branchId}:${serviceId}`;
 
 function readStored(key: string): string | null {
   try {
@@ -98,6 +100,9 @@ export function EntryForm({
   const [feeText, setFeeText] = useState("");
   // The charge box shows the usual charge until someone types over it.
   const [feeEdited, setFeeEdited] = useState(false);
+  // Withdrawals: customer pays the charge on top (by cash or QR) instead of it being cut from the cash.
+  const [chargeApart, setChargeApart] = useState(false);
+  const [chargeBy, setChargeBy] = useState("cash");
   const [commissionText, setCommissionText] = useState("");
   const [costText, setCostText] = useState("");
   const buttons = useMemo(() => branchPayButtons(payButtons, accounts), [payButtons, accounts]);
@@ -157,6 +162,11 @@ export function EntryForm({
   const preview = service && amountPaise !== null ? previewEntry(service.flow, amountPaise, fee, commission, cost) : null;
   const needsCustomer = payMode === "udhaar" || (payMode === "split" && parts.some((p) => p.kind === "udhaar"));
   const change = preview && !givesCash && (payMode === "cash" || payMode === "upi") ? changeDue(preview.customerTotal, receivedO ?? undefined) : 0;
+  const separateCharge = givesCash && fee > 0 && chargeApart;
+  // Paid separately: the customer gets the full amount and hands the charge over by cash or QR.
+  const giveTotal = preview ? preview.customerTotal + (separateCharge ? fee : 0) : 0;
+  const chargeButtons = shownButtons; // withdrawals only show Cash and bank/UPI buttons
+  const chargeButton = chargeButtons.find((b) => b.key === chargeBy) ?? chargeButtons[0];
 
   const pick = (s: ServiceOption) => {
     setService(s);
@@ -173,6 +183,9 @@ export function EntryForm({
     // UPI-to-cash money lands in the bank; everything else defaults to the first portal wallet.
     const preferred = s.category === "upi_cash" || /\bupi\b/i.test(s.name) ? banks[0] : undefined;
     setWalletId(walletChoices.find((w) => w.id === remembered)?.id ?? preferred?.id ?? walletChoices[0]?.id ?? "");
+    const charge = readStored(chargeKey(branchId, s.id));
+    setChargeApart(!!charge?.startsWith("apart"));
+    setChargeBy(charge?.startsWith("apart:") ? charge.slice(6) : "cash");
     requestAnimationFrame(() => amountRef.current?.focus());
   };
 
@@ -213,7 +226,7 @@ export function EntryForm({
     if (payMode === "split" && partsPaise.some((p) => p.amount < 0)) return setError("Mixed amounts must be rupee amounts");
     const pay = buildPayments({
       mode: payMode,
-      total: preview.customerTotal,
+      total: giveTotal,
       flow: service.flow,
       cashId,
       upiId: payUpiId || undefined,
@@ -224,6 +237,12 @@ export function EntryForm({
     if (!pay.ok) {
       if (needsCustomer && !customer) setShowCustomer(true);
       return setError(pay.error);
+    }
+    if (separateCharge) {
+      // The charge comes back in: a negative part on the account it was paid into (cash drawer or QR/bank).
+      const chargeAccount = chargeButton?.mode === "upi" ? chargeButton.accountId : cashId;
+      if (!chargeAccount) return setError("Pick where the charge was paid");
+      pay.payments.push({ account_id: chargeAccount, amount: -fee });
     }
 
     setSaving(true);
@@ -247,7 +266,12 @@ export function EntryForm({
       return setError(offline ? "Not saved: check the internet and press Save again." : err.message);
     }
     if (uses?.wallet) writeStored(walletKey(branchId, service.id), walletId);
-    setSaved(`${service.name} · ${formatINR(amountPaise)} saved${change ? ` · give back ${formatINR(change)}` : ""}`);
+    if (givesCash && fee > 0) writeStored(chargeKey(branchId, service.id), chargeApart ? `apart:${chargeButton?.key ?? "cash"}` : "cut");
+    setSaved(
+      `${service.name} · ${formatINR(amountPaise)} saved${change ? ` · give back ${formatINR(change)}` : ""}${
+        separateCharge ? ` · take ${formatINR(fee)} charge by ${chargeButton?.label ?? "Cash"}` : ""
+      }`,
+    );
     reset();
     router.refresh();
   };
@@ -321,7 +345,7 @@ export function EntryForm({
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-ink-soft">{copy.money}</span>
                   <span className={cx("money text-2xl font-semibold", preview.shopPays ? "text-out" : "text-in")}>
-                    {formatINR(preview.customerTotal)}
+                    {formatINR(giveTotal)}
                   </span>
                 </div>
                 {uses.fee ? (
@@ -350,6 +374,56 @@ export function EntryForm({
                     ) : (
                       <span className="text-xs text-ink-soft">usual charge · type to change</span>
                     )}
+                  </div>
+                ) : null}
+                {givesCash && fee > 0 ? (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <div role="radiogroup" aria-label="How is the charge taken?" className="grid grid-cols-2 gap-2">
+                      {[
+                        { apart: false, label: "Cut from cash" },
+                        { apart: true, label: "Paid separately" },
+                      ].map((o) => (
+                        <button
+                          key={o.label}
+                          type="button"
+                          role="radio"
+                          aria-checked={chargeApart === o.apart}
+                          onClick={() => setChargeApart(o.apart)}
+                          className={cx(
+                            "min-h-11 rounded-lg border px-2 text-sm font-medium transition",
+                            chargeApart === o.apart ? "border-accent bg-accent-soft text-ink" : "border-rule-strong bg-raised text-ink-soft hover:border-ink-soft",
+                          )}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                    {chargeApart ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-ink-soft">Take {formatINR(fee)} charge by</span>
+                        <div role="radiogroup" aria-label="Charge paid by" className="flex flex-wrap gap-2">
+                          {chargeButtons.map((b) => {
+                            const Icon = PAY_ICON[b.mode];
+                            const on = chargeButton?.key === b.key;
+                            return (
+                              <button
+                                key={b.key}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                onClick={() => setChargeBy(b.key)}
+                                className={cx(
+                                  "inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition",
+                                  on ? "border-accent bg-accent text-accent-ink" : "border-rule-strong bg-raised text-ink hover:border-ink-soft",
+                                )}
+                              >
+                                <Icon size={15} aria-hidden /> {b.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">

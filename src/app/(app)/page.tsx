@@ -27,11 +27,14 @@ type Line = { amount: number; customer_id: string | null; accounts: { name: stri
  * Customer-side lines are money out for withdrawals (shop gives) and money in otherwise;
  * the portal/bank line moves the other way, and a negative cash line on a payment is change given back.
  */
-function paymentSummary(lines: Line[], flow: Flow): string {
+function paymentSummary(lines: Line[], flow: Flow, fee: number): string {
+  // Withdrawal with the charge paid separately: the charge comes in as its own line of exactly the fee.
+  const chargeLine = flow === "cash_out" && fee > 0 && lines.some((l) => l.amount < 0) ? lines.find((l) => l.accounts && l.amount === fee) : undefined;
   const customerSide = lines.filter((l) => (flow === "cash_out" ? l.amount < 0 : l.amount > 0 || l.customer_id));
   const labels = customerSide.map((l) => (l.customer_id ? "Udhaar" : l.accounts!.type === "cash" ? "Cash" : l.accounts!.name));
   const hasChange = flow !== "cash_out" && lines.some((l) => !l.customer_id && l.amount < 0 && l.accounts?.type === "cash");
   const unique = labels.filter((v, i, a) => a.indexOf(v) === i).join(" + ");
+  if (chargeLine) return `${unique} · charge by ${chargeLine.accounts!.type === "cash" ? "Cash" : chargeLine.accounts!.name}`;
   return hasChange ? `${unique} (change given)` : unique;
 }
 
@@ -61,7 +64,7 @@ export default async function HomePage() {
     supabase
       .from("transactions")
       .select(
-        "id, kind, amount, earning, note, created_at, created_by, reversal_of, services(name, flow), customers(name), ledger_lines(amount, customer_id, accounts(name, type))",
+        "id, kind, amount, fee, earning, note, created_at, created_by, reversal_of, services(name, flow), customers(name), ledger_lines(amount, customer_id, accounts(name, type))",
       )
       .eq("branch_id", ctx.branchId)
       .eq("business_date", todayIST())
@@ -90,7 +93,7 @@ export default async function HomePage() {
       entryKind: t.reversal_of ? "reversal" : t.kind,
       amount: Number(t.amount),
       earning: Number(t.earning),
-      payment: t.kind === "service" && flow ? paymentSummary(lines, flow) : t.reversal_of ? "" : accountSummary(lines, t.kind),
+      payment: t.kind === "service" && flow ? paymentSummary(lines, flow, Number(t.fee)) : t.reversal_of ? "" : accountSummary(lines, t.kind),
       customer: t.customers?.name ?? null,
       by: nameOf.get(t.created_by) ?? null,
       note: t.note,
