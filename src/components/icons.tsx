@@ -1,5 +1,34 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Baby,
+  BatteryCharging,
+  Cable,
+  Coffee,
+  Cookie,
+  Croissant,
+  CupSoda,
+  Droplets,
+  Egg,
+  Frame,
+  Hammer,
+  Headphones,
+  Hotel,
+  Lightbulb,
+  Milk,
+  Monitor,
+  Package,
+  Paintbrush,
+  Pencil,
+  Pill,
+  Scissors,
+  Shirt,
+  ShoppingBag,
+  ShoppingBasket,
+  SprayCan,
+  Store,
+  Video,
+  Wheat,
+  Wrench,
   BadgeIndianRupee,
   Camera,
   Car,
@@ -55,7 +84,7 @@ export const FLOW_ICON: Record<Flow, LucideIcon> = {
   cash_in: Send,
   pay_through: Zap,
   application: FileText,
-  counter_sale: Printer,
+  counter_sale: ShoppingBag,
 };
 
 /** One picture per non-service entry. */
@@ -104,6 +133,9 @@ type Hue = keyof typeof HUES;
 
 /** Words in a service name → its picture. First match wins, so specific words come first. */
 const SERVICE_RULES: [RegExp, LucideIcon, Hue][] = [
+  [/data cable|usb|otg|charger|power ?bank/, Cable, "teal"],
+  [/earphone|headphone|neckband|tws|speaker|earbud/, Headphones, "purple"],
+  [/repair|flashing|unlock|screen change|battery change|charging port|combo/, Wrench, "orange"],
   [/upi.*(cash|atm)|qr|upi atm/, QrCode, "blue"],
   [/aeps|aadhaar pay|micro ?atm|withdraw/, Fingerprint, "blue"],
   [/aadha?ar/, Fingerprint, "purple"],
@@ -130,9 +162,49 @@ const SERVICE_RULES: [RegExp, LucideIcon, Hue][] = [
   [/lamina/, Layers, "teal"],
   [/xerox|zerox|photocopy|copy/, Copy, "amber"],
   [/print/, Printer, "amber"],
+  [/hair|shav|beard|trim|thread|wax|facial|bleach|spa|manicure|pedicure|make ?up|mehendi|massage|nail art|clean ?up|d-?tan|draping/, Scissors, "pink"],
+  [/stitch|blouse|kurta|shirt|pant|suit|churidar|salwar|lehenga|petticoat|alteration|zip|hem|pico|uniform|frock|sherwani|blazer|gown|nighty|embroider/, Shirt, "purple"],
+  [/pipe|taps?|valve|elbow|plumb|faucet|tank|shower|teflon|tee/, Wrench, "blue"],
+  [/wire|switch|socket|mcb|bulb|tube ?light|led|holder|fans?|extension|regulator|insulation/, Lightbulb, "amber"],
+  [/paint|primer|putty|brush|roller|thinner|emulsion|enamel|sand ?paper/, Paintbrush, "orange"],
+  [/screw|nails?|bolt|hammer|plier|spanner|drill|hinge|lock|handle|cement|tools?|measuring tape|binding wire/, Hammer, "amber"],
+  [/courier|parcel|speed ?post|registered post|cod|packing|box|bubble|envelope/, Package, "orange"],
+  [/diaper|baby/, Baby, "pink"],
+  [/tablet|syrup|strips?|capsule|medicine|paracetamol|dolo|cough|ors|antacid|vitamin|ointment|balm|drops|inject|bandage|band-?aid|cotton|thermometer|bp|sugar test|gluco|mask|sanitizer|antiseptic|dettol|savlon|vicks/, Pill, "red"],
+  [/milk|curd|paneer|butter|ghee|dahi/, Milk, "blue"],
+  [/rice|atta|maida|rava|dal|besan|poha|flour|wheat|sugar|salt|jaggery|gur|chana|moong|masoor|urad|rajma/, Wheat, "amber"],
+  [/biscuit|chips|namkeen|chocolate|cookie|snack|candy|toffee|parle|maggi|noodle/, Cookie, "orange"],
+  [/cold drink|juice|soda|cola|water bottle|pepsi|coca|sprite|frooti|maaza|thums/, CupSoda, "red"],
+  [/tea|coffee|bru|nescafe|chai/, Coffee, "amber"],
+  [/soap|shampoo|detergent|washing|surf|dishwash|phenyl|harpic|tooth|colgate|cleaner|vim/, SprayCan, "teal"],
+  [/oil/, Droplets, "amber"],
+  [/eggs?/, Egg, "amber"],
+  [/bread|bun|cake|rusk/, Croissant, "orange"],
+  [/agarbatti|camphor|kapoor|diya|pooja|candle|matchbox/, Flame, "orange"],
+  [/notebook|register|pens?|pencil|eraser|geometry|chart|file|folder|paper|stapler|calculator|sketch|crayon/, Pencil, "blue"],
+  [/frame|album/, Frame, "purple"],
+  [/shoot|video|drone|wedding/, Video, "pink"],
+  [/hotel/, Hotel, "teal"],
+  [/sim|phone/, Smartphone, "blue"],
 ];
 
 const FLOW_HUE: Record<Flow, Hue> = { cash_out: "blue", cash_in: "green", pay_through: "orange", application: "purple", counter_sale: "amber" };
+
+/** One picture per kind of business, shown on the setup cards. */
+export const PACK_LOOK: Record<string, { icon: LucideIcon; hue: string }> = {
+  csc: { icon: Monitor, hue: HUES.blue },
+  mobile: { icon: Smartphone, hue: HUES.teal },
+  salon: { icon: Scissors, hue: HUES.pink },
+  tailor: { icon: Shirt, hue: HUES.purple },
+  print: { icon: Printer, hue: HUES.amber },
+  photo: { icon: Camera, hue: HUES.pink },
+  travel: { icon: Plane, hue: HUES.teal },
+  courier: { icon: Package, hue: HUES.orange },
+  kirana: { icon: ShoppingBasket, hue: HUES.green },
+  hardware: { icon: Hammer, hue: HUES.orange },
+  medical: { icon: Pill, hue: HUES.red },
+  other: { icon: Store, hue: HUES.purple },
+};
 
 /** Picture and colour for a service, picked from its name, falling back to its type. */
 export function serviceLook(name: string, flow: Flow): { icon: LucideIcon; hue: string } {

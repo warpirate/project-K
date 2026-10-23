@@ -11,14 +11,16 @@ async function signUpAndSetup(page: Page) {
   await page.getByLabel("Password", { exact: true }).fill("password123");
   await page.getByLabel("Confirm password").fill("password123");
   await page.getByRole("button", { name: "Create shop account" }).click();
+  await page.getByRole("button", { name: /CSC \/ Online centre/ }).click();
   await page.getByRole("button", { name: "Save & continue" }).click(); // Main branch
   await expect(page.getByRole("heading", { name: /Cash drawer, wallets/ })).toBeVisible();
   await page.getByLabel("Opening balance in rupees").nth(0).fill("5000"); // drawer
-  await page.getByLabel("Account name").nth(1).fill("PayNearby");
-  await page.getByLabel("Opening balance in rupees").nth(1).fill("10000");
-  await page.getByLabel("Account name").nth(2).fill("SBI UPI");
+  await page.getByLabel("Account name").nth(1).fill("SBI UPI"); // the ready "QR" row, renamed
+  await page.getByLabel("Account name").nth(2).fill("PayNearby");
+  await page.getByLabel("Opening balance in rupees").nth(2).fill("10000");
   await page.getByRole("button", { name: "Save & continue" }).click();
-  await expect(page.getByRole("heading", { name: "Services you offer" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What do you sell?" })).toBeVisible();
+  await page.getByRole("button", { name: "Next: prices" }).click();
   await page.getByRole("button", { name: "Save & continue" }).click();
   await expect(page.getByRole("heading", { name: "Staff logins" })).toBeVisible();
   await page.getByRole("button", { name: "Finish setup" }).click();
@@ -37,8 +39,8 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await page.goto("/");
 
   // Xerox ₹50 on udhaar for a new customer
-  await page.getByPlaceholder(/Search a service/).fill("xerox");
-  await page.getByRole("option", { name: /^Xerox/ }).click();
+  await page.getByPlaceholder(/Search:/).fill("xerox");
+  await page.getByRole("option", { name: "Xerox (1 page)" }).click();
   await page.getByLabel("Amount (₹)").fill("50");
   await page.getByRole("radio", { name: "Udhaar" }).click();
   await page.getByLabel("Customer", { exact: true }).fill("Ramesh");
@@ -108,12 +110,13 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
 
   // Settings: give AEPS a ₹10 charge, add a staff login
   await page.goto("/settings");
-  await page.getByRole("button", { name: /AEPS withdrawal/ }).click();
+  await page.getByRole("button", { name: /AEPS cash withdrawal/ }).click();
+  await page.getByRole("radiogroup", { name: "Charge type" }).getByRole("radio", { name: "₹" }).click(); // ready list had 1%
   await page.getByLabel("Charge", { exact: true }).fill("10");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("button", { name: /AEPS withdrawal.*charge ₹10.00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /AEPS cash withdrawal.*charge ₹10.00/ })).toBeVisible();
   // ...then make the charge grow with the amount
-  await page.getByRole("button", { name: /AEPS withdrawal/ }).click();
+  await page.getByRole("button", { name: /AEPS cash withdrawal/ }).click();
   await page.getByRole("radiogroup", { name: "Charge type" }).getByRole("radio", { name: "By amount" }).click();
   await page.getByLabel("Charge up to amount 1").fill("1000");
   await page.getByLabel("Charge for amount 1").fill("10");
@@ -124,11 +127,11 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await page.getByLabel(/Try an amount/).fill("5000");
   await expect(page.getByText("→ Charge ₹50.00")).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("button", { name: /AEPS withdrawal.*up to ₹1,000.00: ₹10.00, above: 1%/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /AEPS cash withdrawal.*up to ₹1,000.00: ₹10.00, above: 1%/ })).toBeVisible();
   // On New entry the charge is already worked out, and can be changed for this one entry
   await page.goto("/");
-  await page.getByPlaceholder(/Search a service/).fill("aeps");
-  await page.getByRole("option", { name: /AEPS withdrawal/ }).click();
+  await page.getByPlaceholder(/Search:/).fill("aeps");
+  await page.getByRole("option", { name: /AEPS cash withdrawal/ }).click();
   await page.getByLabel("Withdrawal amount (₹)").fill("5000");
   await expect(page.getByLabel("Your charge")).toHaveValue("50");
   await page.getByLabel("Your charge").fill("30");
@@ -155,7 +158,7 @@ test("a full day: udhaar, money, close, dashboard, settings, staff", async ({ pa
   await expect(staff.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
   await staff.goto("/dashboard");
   await expect(staff.getByRole("heading", { name: "New entry" })).toBeVisible();
-  await staff.getByPlaceholder(/Search a service/).fill("Spiral binding");
+  await staff.getByPlaceholder(/Search:/).fill("Gift wrap");
   await staff.getByRole("option", { name: /Create/ }).click();
   await staff.getByRole("button", { name: "Create & use" }).click();
   await staff.getByLabel("Amount (₹)").fill("40");

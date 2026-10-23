@@ -19,11 +19,13 @@ export function ServicePicker({
   onPick,
   onCreate,
   inputRef,
+  placeholder,
 }: {
   services: ServiceOption[];
   onPick: (s: ServiceOption) => void;
   onCreate: (name: string) => void;
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
   const matches = useMemo(() => searchServices(services, query), [services, query]);
@@ -41,7 +43,7 @@ export function ServicePicker({
           ref={inputRef}
           value={query}
           onValueChange={setQuery}
-          placeholder="Search a service: xerox, aeps, recharge…"
+          placeholder={placeholder ? `Search: ${placeholder}` : "Search what you sell…"}
           className="min-h-12 w-full bg-transparent text-[17px] text-ink placeholder:text-ink-soft/70 focus:outline-none"
         />
         {query ? (

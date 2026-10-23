@@ -2,7 +2,9 @@ import { getAppContext } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { flowLabel } from "@/lib/flows";
 import type { Flow } from "@/lib/rules";
+import { packById } from "@/lib/business-packs";
 import { EntryForm } from "./entry-form";
+import { ReadyListBanner } from "./ready-list-banner";
 import { TodayList, type TodayRow } from "./today-list";
 import type { AccountOption, CustomerOption, ServiceOption } from "./types";
 
@@ -53,7 +55,7 @@ export default async function HomePage() {
   const supabase = await createClient();
 
   const [services, accounts, customers, txns] = await Promise.all([
-    supabase.from("services").select("id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule").eq("active", true).order("name"),
+    supabase.from("services").select("id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule, price").eq("active", true).order("name"),
     supabase.from("accounts").select("id, name, type").eq("branch_id", ctx.branchId).eq("active", true).order("created_at"),
     supabase.from("customers").select("id, name, phone").order("name").limit(2000),
     supabase
@@ -103,7 +105,14 @@ export default async function HomePage() {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      {ctx.isOwner ? (
+        <div className="lg:col-span-2">
+          <ReadyListBanner />
+        </div>
+      ) : null}
       <EntryForm
+        businessType={ctx.businessType}
+        searchHint={packById(ctx.businessType)?.search}
         shopId={ctx.profile.shop_id}
         branchId={ctx.branchId}
         isOwner={ctx.isOwner}

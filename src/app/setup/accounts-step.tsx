@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { Banner, Button, Card, Input, Select } from "@/components/ui";
 import { rupeesToPaise } from "@/lib/money";
+import { packById, packFlows } from "@/lib/business-packs";
+import { QR_ACCOUNT } from "@/lib/pay-buttons";
 import { saveAccounts, type AccountRow } from "./actions";
 
 type Draft = { branchId: string; name: string; type: AccountRow["type"]; opening: string; clientId: string };
@@ -22,14 +24,18 @@ const newRow = (branchId: string, name = "", type: Draft["type"] = "wallet"): Dr
 export function AccountsStep({
   branches,
   existing,
+  businessType,
 }: {
   branches: { id: string; name: string }[];
   existing: { id: string; name: string; type: string; branch_id: string }[];
+  businessType: string | null;
 }) {
   const router = useRouter();
+  // Portal wallets only matter for AEPS, transfers, recharges and online forms.
+  const usesWallet = packFlows(packById(businessType)).some((f) => f !== "counter_sale");
   const [rows, setRows] = useState<Draft[]>(() =>
     branches.flatMap((b) =>
-      existing.some((a) => a.branch_id === b.id) ? [] : [newRow(b.id, "Cash drawer", "cash"), newRow(b.id), newRow(b.id, "", "bank")],
+      existing.some((a) => a.branch_id === b.id) ? [] : [newRow(b.id, "Cash drawer", "cash"), newRow(b.id, QR_ACCOUNT, "bank"), ...(usesWallet ? [newRow(b.id)] : [])],
     ),
   );
   const [error, setError] = useState<string>();
@@ -64,8 +70,10 @@ export function AccountsStep({
     <Card>
       <h2 className="font-display text-2xl">Cash drawer, wallets & bank</h2>
       <p className="mt-1 text-ink-soft">
-        Add every place money sits: the drawer, each portal wallet (PayNearby, Spice Money…), and your bank/UPI. Opening
-        balance = what is there right now.
+        {usesWallet
+          ? "Add every place money sits: the drawer, your QR / bank, and each portal wallet (PayNearby, Spice Money…)."
+          : "Add every place money sits: the drawer and your QR / bank."}{" "}
+        “QR” is your Paytm Business or other shop QR. Opening balance = what is there right now.
       </p>
       {error ? <div className="mt-4"><Banner>{error}</Banner></div> : null}
       {branches.map((b) => (
@@ -115,9 +123,16 @@ export function AccountsStep({
               ),
             )}
           </ul>
-          <Button variant="secondary" className="mt-3" onClick={() => setRows([...rows, newRow(b.id)])}>
-            <Plus size={16} /> Add account
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setRows([...rows, newRow(b.id, "", usesWallet ? "wallet" : "bank")])}>
+              <Plus size={16} /> Add account
+            </Button>
+            {[...existing.filter((a) => a.branch_id === b.id), ...rows.filter((r) => r.branchId === b.id)].some((a) => a.name.trim().toLowerCase() === QR_ACCOUNT.toLowerCase()) ? null : (
+              <Button variant="secondary" onClick={() => setRows([...rows, newRow(b.id, QR_ACCOUNT, "bank")])}>
+                <Plus size={16} /> QR (Paytm Business)
+              </Button>
+            )}
+          </div>
         </div>
       ))}
       <div className="mt-8 flex justify-between">

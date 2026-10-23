@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ListChecks, Plus, Store, Users, Wallet } from "lucide-react";
+import { Check, ChevronDown, ListChecks, ListPlus, Plus, Store, Trash2, Users, Wallet } from "lucide-react";
 import { Banner, Button, Card, Field, Input, Select, Tabs, cx } from "@/components/ui";
 import { ACCOUNT_ICON, IconTile, ServiceGlyph } from "@/components/icons";
-import { allPayButtons, branchPayButtons, defaultPayKey } from "@/lib/pay-buttons";
+import { allPayButtons, branchPayButtons, defaultPayKey, QR_ACCOUNT } from "@/lib/pay-buttons";
+import { formatINR, rupeesToPaise } from "@/lib/money";
 import { RuleInput, type RuleDraft } from "@/components/rule-input";
-import { FLOWS, flowLabel, flowUses } from "@/lib/flows";
+import { flowLabel, flowOptions, flowUses } from "@/lib/flows";
 import { describeRule, ruleFromDraft, ruleFromInput, ruleToDraft, ruleToInput, type Flow } from "@/lib/rules";
 import { createClient } from "@/lib/supabase/client";
 import { useSubmit } from "@/lib/use-submit";
@@ -23,6 +25,7 @@ export type PayConfig = Record<string, { buttons: string[] | null; default: stri
 export function SettingsTabs({
   initialTab,
   shopId,
+  businessType,
   branches,
   services,
   accounts,
@@ -31,6 +34,7 @@ export function SettingsTabs({
 }: {
   initialTab: string;
   shopId: string;
+  businessType: string | null;
   branches: Branch[];
   services: ServiceRow[];
   accounts: AccountRow[];
@@ -54,7 +58,7 @@ export function SettingsTabs({
           ]}
         />
       </div>
-      {tab === "services" && <ServicesSettings services={services} />}
+      {tab === "services" && <ServicesSettings services={services} businessType={businessType} />}
       {tab === "accounts" && <AccountsSettings shopId={shopId} branches={branches} accounts={accounts} payConfig={payConfig} />}
       {tab === "branches" && <BranchesSettings shopId={shopId} branches={branches} />}
       {tab === "staff" && <StaffSettings branches={branches} staff={staff} />}
@@ -64,54 +68,174 @@ export function SettingsTabs({
 
 /* ---------------- Services ---------------- */
 
-function ServicesSettings({ services }: { services: ServiceRow[] }) {
+/** A Delete button that asks once more ("Tap again to delete") instead of a browser popup. */
+function ConfirmDelete({
+  label,
+  onConfirm,
+  busy,
+  className,
+  ariaLabel,
+}: {
+  label: string;
+  onConfirm: () => void;
+  busy?: boolean;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <Button
+      type="button"
+      variant={armed ? "danger" : "ghost"}
+      disabled={busy}
+      className={cx(!armed && "text-out hover:text-out", className)}
+      aria-label={armed ? undefined : ariaLabel}
+      onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}
+    >
+      <Trash2 size={16} /> {armed ? "Tap again to delete" : label}
+    </Button>
+  );
+}
+
+function ServicesSettings({ services, businessType }: { services: ServiceRow[]; businessType: string | null }) {
   const [open, setOpen] = useState<string | null>(null);
   const [showOff, setShowOff] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const { busy, error, done, run } = useSubmit();
   const sorted = [...services].sort((a, b) => Number(a.reviewed) - Number(b.reviewed) || Number(b.active) - Number(a.active) || a.name.localeCompare(b.name));
   const list = sorted.filter((s) => showOff || s.active || !s.reviewed);
+  const togglePick = (id: string) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]);
+
+  const deleteMany = async (ids: string[]) => {
+    const n = ids.length;
+    if (await run(() => createClient().rpc("delete_services", { p_ids: ids }), `Deleted ${n} ${n === 1 ? "service" : "services"}`)) {
+      setPicked([]);
+      setSelecting(false);
+      setOpen(null);
+    }
+  };
+
   return (
     <Card className="p-0 sm:p-0">
-      <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-3">
-        <p className="text-sm text-ink-soft">Tap a service to change its charges. New ones can also be added from the entry screen.</p>
-        <label className="flex shrink-0 items-center gap-2 text-sm text-ink-soft">
-          <input type="checkbox" checked={showOff} onChange={(e) => setShowOff(e.target.checked)} className="size-4 accent-[var(--accent)]" />
-          Show turned off
-        </label>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-5 py-3">
+        <Link
+          href="/settings/ready-list"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-accent-ink hover:brightness-110"
+        >
+          <ListPlus size={17} aria-hidden /> Add from ready list
+        </Link>
+        <div className="flex items-center gap-2">
+          {selecting ? null : (
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
+              <input type="checkbox" checked={showOff} onChange={(e) => setShowOff(e.target.checked)} className="size-4 accent-[var(--accent)]" />
+              Show turned off
+            </label>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSelecting(!selecting);
+              setPicked([]);
+              setOpen(null);
+            }}
+          >
+            {selecting ? "Cancel" : "Select"}
+          </Button>
+        </div>
       </div>
+      <p className="border-b border-rule px-5 py-2.5 text-sm text-ink-soft">
+        {selecting
+          ? "Tick the services to delete. Old entries keep their names."
+          : `Tap a service to change its price or charges. New ones can also be added from the entry screen.`}
+      </p>
+      {done ? <div className="px-5 pt-3"><Banner tone="info">{done}</Banner></div> : null}
+      {error ? <div className="px-5 pt-3"><Banner>{error}</Banner></div> : null}
+      {selecting ? (
+        <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-2">
+          <button
+            type="button"
+            className="min-h-10 text-sm font-medium text-accent"
+            onClick={() => setPicked(picked.length === list.length ? [] : list.map((s) => s.id))}
+          >
+            {picked.length === list.length ? "Untick all" : "Tick all"}
+          </button>
+          <span className="text-sm text-ink-soft">{picked.length} ticked</span>
+        </div>
+      ) : null}
       <ul className="divide-y divide-rule">
         {list.map((s) => (
           <li key={s.id}>
             <button
               type="button"
-              onClick={() => setOpen(open === s.id ? null : s.id)}
-              aria-expanded={open === s.id}
+              onClick={() => (selecting ? togglePick(s.id) : setOpen(open === s.id ? null : s.id))}
+              aria-expanded={selecting ? undefined : open === s.id}
+              aria-pressed={selecting ? picked.includes(s.id) : undefined}
               className="flex min-h-14 w-full items-center gap-3 px-5 py-2 text-left hover:bg-paper"
             >
+              {selecting ? (
+                <span
+                  aria-hidden
+                  className={cx(
+                    "flex size-6 shrink-0 items-center justify-center rounded-md border-2",
+                    picked.includes(s.id) ? "border-out bg-out text-paper" : "border-rule-strong",
+                  )}
+                >
+                  {picked.includes(s.id) ? <Check size={14} strokeWidth={3} /> : null}
+                </span>
+              ) : null}
               <ServiceGlyph name={s.name} flow={s.flow} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className={cx("block font-medium", !s.active && "text-ink-soft line-through")}>{s.name}</span>
                 <span className="block text-sm text-ink-soft">
                   {flowLabel(s.flow)}
+                  {s.price !== null && !flowUses(s.flow).fee ? ` · ${formatINR(s.price)}` : ""}
                   {flowUses(s.flow).fee ? ` · charge ${describeRule(s.fee_rule)}` : ""}
                   {flowUses(s.flow).commission ? ` · commission ${describeRule(s.commission_rule)}` : ""}
                   {flowUses(s.flow).portalCost ? ` · portal fee ${describeRule(s.portal_cost_rule)}` : ""}
                 </span>
               </span>
               {!s.reviewed ? <span className="rounded-full bg-highlight/20 px-2 py-0.5 text-xs font-medium">New · check</span> : null}
-              <ChevronDown size={18} className={cx("shrink-0 text-ink-soft transition", open === s.id && "rotate-180")} />
+              {selecting ? null : <ChevronDown size={18} className={cx("shrink-0 text-ink-soft transition", open === s.id && "rotate-180")} />}
             </button>
-            {open === s.id ? <ServiceEditor service={s} onDone={() => setOpen(null)} /> : null}
+            {open === s.id && !selecting ? (
+              <ServiceEditor service={s} businessType={businessType} onDone={() => setOpen(null)} onDelete={() => void deleteMany([s.id])} deleting={busy} />
+            ) : null}
           </li>
         ))}
+        {list.length === 0 ? <li className="px-5 py-8 text-center text-ink-soft">No services yet. Use “Add from ready list”.</li> : null}
       </ul>
+      {selecting && picked.length ? (
+        <div className="sticky bottom-[calc(60px+env(safe-area-inset-bottom))] flex justify-end rounded-b-2xl border-t border-rule bg-raised/95 px-5 py-3 backdrop-blur md:bottom-0">
+          <ConfirmDelete label={`Delete ${picked.length}`} busy={busy} onConfirm={() => void deleteMany(picked)} />
+        </div>
+      ) : null}
     </Card>
   );
 }
 
-function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () => void }) {
+function ServiceEditor({
+  service,
+  businessType,
+  onDone,
+  onDelete,
+  deleting,
+}: {
+  service: ServiceRow;
+  businessType: string | null;
+  onDone: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
   const { busy, error, run, setError } = useSubmit();
   const [name, setName] = useState(service.name);
   const [flow, setFlow] = useState<Flow>(service.flow);
+  const [price, setPrice] = useState(service.price === null ? "" : String(Number((service.price / 100).toFixed(2))));
   const [fee, setFee] = useState<RuleDraft>(ruleToDraft(service.fee_rule));
   const [commission, setCommission] = useState<RuleDraft>(ruleToDraft(service.commission_rule));
   const [cost, setCost] = useState<RuleDraft>(ruleToInput(service.portal_cost_rule));
@@ -129,6 +253,8 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
     } catch (e) {
       return setError((e as Error).message);
     }
+    const pricePaise = uses.fee || price.trim() === "" ? null : rupeesToPaise(price);
+    if (!uses.fee && price.trim() !== "" && pricePaise === null) return setError("Price: enter rupees, like 40 or 12.50");
     if (!name.trim()) return setError("Enter a name");
     const ok = await run(
       () =>
@@ -137,6 +263,7 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
           .update({
             name: name.trim(),
             flow,
+            price: pricePaise,
             fee_rule: rules.fee_rule as Json,
             commission_rule: rules.commission_rule as Json,
             portal_cost_rule: rules.portal_cost_rule as Json,
@@ -158,13 +285,18 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
         </Field>
         <Field label="Type" htmlFor={`f-${service.id}`}>
           <Select id={`f-${service.id}`} value={flow} onChange={(e) => setFlow(e.target.value as Flow)}>
-            {FLOWS.map((f) => (
+            {flowOptions(businessType, service.flow).map((f) => (
               <option key={f.value} value={f.value}>
                 {f.label}
               </option>
             ))}
           </Select>
         </Field>
+        {!uses.fee ? (
+          <Field label={flow === "application" ? "Usual charge to customer (₹)" : "Usual price (₹)"} htmlFor={`p-${service.id}`} hint="Filled in on New entry. Empty = type it each time.">
+            <Input id={`p-${service.id}`} inputMode="decimal" className="money" value={price} onChange={(e) => setPrice(e.target.value)} />
+          </Field>
+        ) : null}
         {uses.fee ? (
           <Field label="Your charge from customer" htmlFor={`fee-${service.id}`} hint={fee.mode === "slab" ? "Bigger amount, bigger charge. The last row covers everything above." : "Empty = no charge. Use “By amount” if the charge grows with the amount."}>
             <RuleInput id={`fee-${service.id}`} label="Charge" allowSlab tryIt value={fee} onChange={setFee} />
@@ -186,9 +318,12 @@ function ServiceEditor({ service, onDone }: { service: ServiceRow; onDone: () =>
       </div>
       {error ? <Banner>{/duplicate|unique/i.test(error) ? "Another service already has this name" : error}</Banner> : null}
       <div className="flex flex-wrap justify-between gap-2">
-        <Button type="button" variant="ghost" disabled={busy} onClick={() => void save({ active: !service.active })}>
-          {service.active ? "Turn off" : "Turn on"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ConfirmDelete label="Delete" busy={busy || deleting} onConfirm={onDelete} />
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => void save({ active: !service.active })}>
+            {service.active ? "Turn off" : "Turn on"}
+          </Button>
+        </div>
         <div className="flex gap-2">
           {!service.reviewed ? (
             <Button type="button" variant="secondary" disabled={busy} onClick={() => void save()}>
@@ -221,7 +356,7 @@ function AccountsSettings({ shopId, branches, accounts, payConfig }: { shopId: s
                 <AccountItem key={a.id} account={a} />
               ))}
           </ul>
-          <NewAccount shopId={shopId} branchId={b.id} />
+          <NewAccount shopId={shopId} branchId={b.id} hasQr={accounts.some((a) => a.branch_id === b.id && a.name.trim().toLowerCase() === QR_ACCOUNT.toLowerCase())} />
           <PayButtonsEditor
             key={JSON.stringify(payConfig[b.id] ?? null)}
             branchId={b.id}
@@ -249,12 +384,21 @@ function AccountItem({ account }: { account: AccountRow }) {
             Save
           </Button>
         ) : (
-          <Button variant="ghost" disabled={busy} onClick={() => void update({ active: !account.active })}>
-            {account.active ? "Turn off" : "Turn on"}
-          </Button>
+          <>
+            <Button variant="ghost" disabled={busy} className="px-2.5 whitespace-nowrap" onClick={() => void update({ active: !account.active })}>
+              {account.active ? "Turn off" : "Turn on"}
+            </Button>
+            <ConfirmDelete
+              label=""
+              ariaLabel={`Delete ${account.name}`}
+              busy={busy}
+              className="shrink-0 px-2.5"
+              onConfirm={() => void run(() => createClient().rpc("delete_account", { p_id: account.id }), "Deleted")}
+            />
+          </>
         )}
       </div>
-      {error ? <p className="text-sm text-out">{error}</p> : null}
+      {error ? <p className="text-sm text-out">{error.replace(/₹(\d+(?:\.\d+)?)/,(_, r) => formatINR(Math.round(Number(r) * 100)))}</p> : null}
     </li>
   );
 }
@@ -312,7 +456,7 @@ function PayButtonsEditor({
   );
 }
 
-function NewAccount({ shopId, branchId }: { shopId: string; branchId: string }) {
+function NewAccount({ shopId, branchId, hasQr }: { shopId: string; branchId: string; hasQr: boolean }) {
   const { busy, error, run, setError } = useSubmit();
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountRow["type"]>("wallet");
@@ -338,6 +482,17 @@ function NewAccount({ shopId, branchId }: { shopId: string; branchId: string }) 
           <Plus size={16} /> Add
         </Button>
       </div>
+      {hasQr ? null : (
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={busy}
+          className="self-start"
+          onClick={() => void run(() => createClient().from("accounts").insert({ shop_id: shopId, branch_id: branchId, name: QR_ACCOUNT, type: "bank" }), "QR added")}
+        >
+          <Plus size={16} /> QR (Paytm Business)
+        </Button>
+      )}
       <p className="text-xs text-ink-soft">Set its starting balance from Money → Fix a balance.</p>
       {error ? <p className="text-sm text-out">{/duplicate|unique/i.test(error) ? "This branch already has an account with this name" : error}</p> : null}
     </form>

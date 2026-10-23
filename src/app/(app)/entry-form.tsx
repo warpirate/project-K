@@ -60,6 +60,8 @@ function Reveal({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 export function EntryForm({
+  businessType,
+  searchHint,
   shopId,
   branchId,
   isOwner,
@@ -69,6 +71,9 @@ export function EntryForm({
   payButtons,
   defaultPay,
 }: {
+  businessType: string | null;
+  /** Search box hint for this kind of business. */
+  searchHint?: string;
   shopId: string;
   branchId: string;
   isOwner: boolean;
@@ -155,6 +160,8 @@ export function EntryForm({
 
   const pick = (s: ServiceOption) => {
     setService(s);
+    // Fixed-price items come with their usual price; it can still be changed for this sale.
+    if (s.price !== null && s.price !== undefined && !flowUses(s.flow).fee) setAmount(String(Number((s.price / 100).toFixed(2))));
     setFeeText("");
     setFeeEdited(false);
     setCommissionText("");
@@ -164,7 +171,7 @@ export function EntryForm({
     setSaved(undefined);
     const remembered = readStored(walletKey(branchId, s.id));
     // UPI-to-cash money lands in the bank; everything else defaults to the first portal wallet.
-    const preferred = s.category === "upi_cash" ? banks[0] : undefined;
+    const preferred = s.category === "upi_cash" || /\bupi\b/i.test(s.name) ? banks[0] : undefined;
     setWalletId(walletChoices.find((w) => w.id === remembered)?.id ?? preferred?.id ?? walletChoices[0]?.id ?? "");
     requestAnimationFrame(() => amountRef.current?.focus());
   };
@@ -278,7 +285,7 @@ export function EntryForm({
             </Button>
           </div>
         ) : (
-          <ServicePicker services={services} onPick={pick} onCreate={setCreating} inputRef={pickerRef} />
+          <ServicePicker services={services} onPick={pick} onCreate={setCreating} inputRef={pickerRef} placeholder={searchHint} />
         )}
 
         {service && copy && uses ? (
@@ -511,6 +518,7 @@ export function EntryForm({
 
       <CreateServiceDialog
         name={creating}
+        businessType={businessType}
         shopId={shopId}
         isOwner={isOwner}
         onClose={() => setCreating(null)}

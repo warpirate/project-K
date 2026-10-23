@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
+          deleted_at: string | null
           active: boolean
           branch_id: string
           created_at: string
@@ -50,6 +51,7 @@ export type Database = {
           type: Database["public"]["Enums"]["account_type"]
         }
         Insert: {
+          deleted_at?: string | null
           active?: boolean
           branch_id: string
           created_at?: string
@@ -59,6 +61,7 @@ export type Database = {
           type: Database["public"]["Enums"]["account_type"]
         }
         Update: {
+          deleted_at?: string | null
           active?: boolean
           branch_id?: string
           created_at?: string
@@ -332,6 +335,7 @@ export type Database = {
       }
       services: {
         Row: {
+          deleted_at: string | null
           active: boolean
           aliases: string[]
           category: string
@@ -343,10 +347,12 @@ export type Database = {
           id: string
           name: string
           portal_cost_rule: Json | null
+          price: number | null
           reviewed: boolean
           shop_id: string
         }
         Insert: {
+          deleted_at?: string | null
           active?: boolean
           aliases?: string[]
           category?: string
@@ -358,10 +364,12 @@ export type Database = {
           id?: string
           name: string
           portal_cost_rule?: Json | null
+          price?: number | null
           reviewed?: boolean
           shop_id: string
         }
         Update: {
+          deleted_at?: string | null
           active?: boolean
           aliases?: string[]
           category?: string
@@ -373,6 +381,7 @@ export type Database = {
           id?: string
           name?: string
           portal_cost_rule?: Json | null
+          price?: number | null
           reviewed?: boolean
           shop_id?: string
         }
@@ -388,16 +397,19 @@ export type Database = {
       }
       shops: {
         Row: {
+          business_type: string | null
           created_at: string
           id: string
           name: string
         }
         Insert: {
+          business_type?: string | null
           created_at?: string
           id?: string
           name: string
         }
         Update: {
+          business_type?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -556,6 +568,8 @@ export type Database = {
       }
     }
     Functions: {
+      delete_account: { Args: { p_id: string }; Returns: undefined }
+      delete_services: { Args: { p_ids: string[] }; Returns: number }
       calc_rule: { Args: { p_amount: number; p_rule: Json }; Returns: number }
       close_day: {
         Args: { p_branch_id: string; p_counted_cash: number; p_note?: string }

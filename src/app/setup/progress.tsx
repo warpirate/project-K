@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 
 export const STEPS = [
+  { key: "business", label: "Business" },
   { key: "branches", label: "Branches" },
   { key: "accounts", label: "Cash & wallets" },
-  { key: "services", label: "Services" },
+  { key: "services", label: "Prices" },
   { key: "staff", label: "Staff" },
 ] as const;
 
@@ -13,7 +14,7 @@ export type StepKey = (typeof STEPS)[number]["key"];
 export function Progress({ current, reachable }: { current: StepKey; reachable: StepKey[] }) {
   const currentIdx = STEPS.findIndex((s) => s.key === current);
   return (
-    <ol className="mt-8 grid grid-cols-4 gap-2" aria-label="Setup steps">
+    <ol className="mt-8 grid grid-cols-5 gap-2" aria-label="Setup steps">
       {STEPS.map((s, i) => {
         const done = i < currentIdx;
         const active = i === currentIdx;

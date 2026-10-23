@@ -13,6 +13,7 @@ export interface ServiceRow {
   fee_rule: Rule | null;
   commission_rule: Rule | null;
   portal_cost_rule: Rule | null;
+  price: number | null;
   active: boolean;
   reviewed: boolean;
 }
@@ -38,8 +39,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!ctx.isOwner) redirect("/");
   const supabase = await createClient();
   const [{ data: services }, { data: accounts }, { data: profiles }, { data: branchRows }] = await Promise.all([
-    supabase.from("services").select("id, name, flow, aliases, fee_rule, commission_rule, portal_cost_rule, active, reviewed").order("name"),
-    supabase.from("accounts").select("id, branch_id, name, type, active").order("created_at"),
+    supabase.from("services").select("id, name, flow, aliases, fee_rule, commission_rule, portal_cost_rule, price, active, reviewed").is("deleted_at", null).order("name"),
+    supabase.from("accounts").select("id, branch_id, name, type, active").is("deleted_at", null).order("created_at"),
     supabase.from("profiles").select("user_id, name, branch_id, active, role").eq("role", "staff").order("name"),
     supabase.from("branches").select("id, pay_buttons, default_pay"),
   ]);
@@ -57,6 +58,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <SettingsTabs
       initialTab={(await searchParams).tab ?? "services"}
       shopId={ctx.profile.shop_id}
+      businessType={ctx.businessType}
       branches={ctx.branches}
       services={(services ?? []) as unknown as ServiceRow[]}
       accounts={(accounts ?? []) as AccountRow[]}

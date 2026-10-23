@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppContext } from "@/lib/session";
 import { isValidUsername, usernameToEmail } from "@/lib/staff";
-import type { Flow, Rule } from "@/lib/rules";
+import { packById } from "@/lib/business-packs";
+import { normalizeName } from "@/lib/services";
+import type { NewService } from "@/components/pack-builder";
 import type { Json } from "@/lib/database.types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string; rowErrors?: Record<number, string> };
@@ -69,35 +71,56 @@ export async function saveAccounts(rows: AccountRow[]): Promise<ActionResult> {
   return Object.keys(rowErrors).length ? { ok: false, error: "Some rows were not saved.", rowErrors } : { ok: true };
 }
 
-export interface ServiceRow {
-  name: string;
-  flow: Flow;
-  category: string;
-  aliases: string[];
-  feeRule: Rule | null;
-  commissionRule: Rule | null;
-  portalCostRule: Rule | null;
+export type { NewService as ServiceRow } from "@/components/pack-builder";
+
+/** Saves the business type picked at setup (which ready list to offer). */
+export async function saveBusinessType(id: string): Promise<ActionResult> {
+  const ctx = await ownerContext();
+  if (!packById(id)) return { ok: false, error: "Pick a business" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("shops").update({ business_type: id }).eq("id", ctx.profile.shop_id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
-export async function saveServices(rows: ServiceRow[]): Promise<ActionResult> {
+/** Adds services/items in one go; names the shop already has are skipped. */
+export async function saveServices(rows: NewService[]): Promise<ActionResult> {
   const ctx = await ownerContext();
   const supabase = await createClient();
-  const rowErrors: Record<number, string> = {};
-  for (const [i, row] of rows.entries()) {
-    const { error } = await supabase.from("services").insert({
-      shop_id: ctx.profile.shop_id,
-      name: row.name.trim(),
-      flow: row.flow,
-      category: row.category,
-      aliases: row.aliases,
-      fee_rule: row.feeRule as Json,
-      commission_rule: row.commissionRule as Json,
-      portal_cost_rule: row.portalCostRule as Json,
-    });
-    if (error && !/duplicate|unique/i.test(error.message)) rowErrors[i] = error.message;
+  const { data: current } = await supabase.from("services").select("name").is("deleted_at", null);
+  const have = new Set((current ?? []).map((s) => normalizeName(s.name)));
+  const toAdd = rows.filter((r) => {
+    const n = normalizeName(r.name);
+    if (!n || have.has(n)) return false;
+    have.add(n);
+    return true;
+  });
+  const record = (row: NewService) => ({
+    shop_id: ctx.profile.shop_id,
+    name: row.name.trim(),
+    flow: row.flow,
+    category: row.category,
+    aliases: row.aliases,
+    price: row.price,
+    fee_rule: row.feeRule as Json,
+    commission_rule: row.commissionRule as Json,
+    portal_cost_rule: row.portalCostRule as Json,
+  });
+  if (toAdd.length) {
+    const { error } = await supabase.from("services").insert(toAdd.map(record));
+    if (error) {
+      // One bad row fails the whole batch; save the rest one by one and report what failed.
+      const failed: string[] = [];
+      for (const row of toAdd) {
+        const res = await supabase.from("services").insert(record(row));
+        if (res.error && !/duplicate|unique/i.test(res.error.message)) failed.push(row.name);
+      }
+      if (failed.length) return { ok: false, error: `Not saved: ${failed.slice(0, 5).join(", ")}${failed.length > 5 ? ` and ${failed.length - 5} more` : ""}` };
+    }
   }
-  revalidatePath("/setup");
-  return Object.keys(rowErrors).length ? { ok: false, error: "Some services were not saved.", rowErrors } : { ok: true };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 export interface StaffRow {

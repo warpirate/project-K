@@ -17,16 +17,16 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           </p>
           <ul className="money mt-10 space-y-2 text-[15px] text-ink-soft">
             <li className="flex justify-between gap-8">
-              <span>AEPS withdrawal</span>
+              <span>UPI to cash</span>
               <span className="text-out">−₹1,980.00</span>
             </li>
             <li className="flex justify-between gap-8">
-              <span>Money transfer</span>
-              <span className="text-in">+₹5,050.00</span>
+              <span>Rice (5 kg) · Udhaar</span>
+              <span className="text-in">+₹290.00</span>
             </li>
             <li className="flex justify-between gap-8">
-              <span>Xerox × 10</span>
-              <span className="text-in">+₹20.00</span>
+              <span>Haircut</span>
+              <span className="text-in">+₹100.00</span>
             </li>
           </ul>
         </div>

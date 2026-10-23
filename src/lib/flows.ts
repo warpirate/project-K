@@ -1,4 +1,5 @@
 import type { Flow } from "@/lib/rules";
+import { packById, packFlows } from "@/lib/business-packs";
 
 /** Plain-language names for money flows, shown wherever someone picks a service type. */
 export const FLOWS: { value: Flow; label: string; help: string }[] = [
@@ -14,8 +15,14 @@ export const FLOWS: { value: Flow; label: string; help: string }[] = [
     label: "Online application",
     help: "PAN, Aadhaar, certificates: you charge the customer, the portal may cut a fee from your wallet",
   },
-  { value: "counter_sale", label: "Shop item / counter sale", help: "Xerox, print, lamination, photos: all the money is yours" },
+  { value: "counter_sale", label: "Shop item / counter sale", help: "Anything you sell or do for a price: all the money is yours" },
 ];
+
+/** Service types that fit this business, plus the one already chosen. */
+export function flowOptions(businessType: string | null | undefined, current?: Flow) {
+  const fits = packFlows(packById(businessType));
+  return FLOWS.filter((f) => fits.includes(f.value) || f.value === current);
+}
 
 export const flowLabel = (f: Flow) => FLOWS.find((x) => x.value === f)?.label ?? f;
 

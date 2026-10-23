@@ -16,6 +16,9 @@ interface Acct {
   type: "cash" | "wallet" | "bank";
 }
 
+/** Ready-made Bank / UPI account for a shop QR (Paytm Business and similar); its button on New entry says "QR". */
+export const QR_ACCOUNT = "QR";
+
 export const SPECIAL_BUTTONS = [
   { key: "cash", label: "Cash", mode: "cash" },
   { key: "udhaar", label: "Udhaar", mode: "udhaar" },

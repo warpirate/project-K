@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Banner, Button, Field, Input, Select } from "@/components/ui";
 import { RuleInput, emptyRule, type RuleDraft } from "@/components/rule-input";
-import { FLOWS, flowUses } from "@/lib/flows";
+import { FLOWS, flowOptions, flowUses } from "@/lib/flows";
+import { rupeesToPaise } from "@/lib/money";
 import { ruleFromDraft, ruleFromInput, type Flow, type Rule } from "@/lib/rules";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/database.types";
@@ -12,12 +13,14 @@ import type { ServiceOption } from "./types";
 /** Popup to add a service that does not exist yet; returns the saved (or already existing) service. */
 export function CreateServiceDialog({
   name,
+  businessType,
   shopId,
   isOwner,
   onClose,
   onCreated,
 }: {
   name: string | null;
+  businessType: string | null;
   shopId: string;
   isOwner: boolean;
   onClose: () => void;
@@ -29,6 +32,7 @@ export function CreateServiceDialog({
   const [fee, setFee] = useState<RuleDraft>(emptyRule);
   const [commission, setCommission] = useState<RuleDraft>(emptyRule);
   const [portalCost, setPortalCost] = useState<RuleDraft>(emptyRule);
+  const [price, setPrice] = useState("");
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
 
@@ -39,6 +43,7 @@ export function CreateServiceDialog({
     setFee(emptyRule);
     setCommission(emptyRule);
     setPortalCost(emptyRule);
+    setPrice("");
     setError(undefined);
     ref.current?.showModal();
   }, [name]);
@@ -58,15 +63,18 @@ export function CreateServiceDialog({
       return setError((e as Error).message);
     }
     if (!draftName.trim()) return setError("Enter a name");
+    const pricePaise = uses.fee || price.trim() === "" ? null : rupeesToPaise(price);
+    if (!uses.fee && price.trim() !== "" && pricePaise === null) return setError("Price: enter rupees, like 40 or 12.50");
     setSaving(true);
     const supabase = createClient();
-    const cols = "id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule";
+    const cols = "id, name, flow, category, aliases, fee_rule, commission_rule, portal_cost_rule, price";
     const { data, error: err } = await supabase
       .from("services")
       .insert({
         shop_id: shopId,
         name: draftName.trim(),
         flow,
+        price: pricePaise,
         fee_rule: rules.fee_rule as Json,
         commission_rule: rules.commission_rule as Json,
         portal_cost_rule: rules.portal_cost_rule as Json,
@@ -76,7 +84,7 @@ export function CreateServiceDialog({
     setSaving(false);
     if (err) {
       if (/duplicate|unique/i.test(err.message)) {
-        const { data: existing } = await supabase.from("services").select(cols).ilike("name", draftName.trim()).maybeSingle();
+        const { data: existing } = await supabase.from("services").select(cols).ilike("name", draftName.trim()).is("deleted_at", null).maybeSingle();
         if (existing) return onCreated(existing as unknown as ServiceOption);
         return setError("A service with this name already exists.");
       }
@@ -111,13 +119,18 @@ export function CreateServiceDialog({
         </Field>
         <Field label="What kind of service?" htmlFor="svc-flow" hint={FLOWS.find((f) => f.value === flow)?.help}>
           <Select id="svc-flow" value={flow} onChange={(e) => setFlow(e.target.value as Flow)}>
-            {FLOWS.map((f) => (
+            {flowOptions(businessType).map((f) => (
               <option key={f.value} value={f.value}>
                 {f.label}
               </option>
             ))}
           </Select>
         </Field>
+        {!uses.fee ? (
+          <Field label={flow === "application" ? "Usual charge to customer (optional)" : "Usual price (optional)"} htmlFor="svc-price" hint="Filled in next time. Empty = type it each time.">
+            <Input id="svc-price" inputMode="decimal" className="money" placeholder="₹" value={price} onChange={(e) => setPrice(e.target.value)} />
+          </Field>
+        ) : null}
         {uses.fee || uses.commission || uses.portalCost ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {uses.fee ? (

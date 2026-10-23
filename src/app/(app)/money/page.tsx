@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { loadBalances, TYPE_LABEL } from "@/lib/balances";
 import { formatINR } from "@/lib/money";
 import { Card, cx } from "@/components/ui";
-import { ACCOUNT_ICON, IconTile } from "@/components/icons";
+import { IconTile } from "@/components/icons";
 import { MoneyForms } from "./money-forms";
+import { AccountList } from "./account-list";
 
 export default async function MoneyPage() {
   const ctx = await getAppContext();
@@ -35,20 +36,7 @@ export default async function MoneyPage() {
           <h1 className="font-display text-2xl">Money now</h1>
           <span className="text-sm text-ink-soft">{branchName(ctx.branchId)}</span>
         </div>
-        <ul className="mt-4 divide-y divide-rule">
-          {here.map((a) => (
-            <li key={a.account_id} className="flex items-center justify-between gap-3 py-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <IconTile icon={ACCOUNT_ICON[a.type]} tone={a.type === "cash" ? "accent" : "plain"} />
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{a.name}</p>
-                  <p className="text-xs text-ink-soft">{TYPE_LABEL[a.type]}</p>
-                </div>
-              </div>
-              <span className={cx("money text-lg font-semibold", a.balance < 0 && "text-out")}>{formatINR(a.balance)}</span>
-            </li>
-          ))}
-        </ul>
+        <AccountList rows={here.map((a) => ({ account_id: a.account_id, name: a.name, type: a.type, typeLabel: TYPE_LABEL[a.type], balance: a.balance }))} />
         <div className="mt-2 flex items-center justify-between border-t-2 border-ink pt-3">
           <span className="font-medium">Money in hand</span>
           <span className="money text-xl font-semibold">{formatINR(total)}</span>

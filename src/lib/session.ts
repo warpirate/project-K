@@ -15,6 +15,8 @@ export interface AppContext {
   userId: string;
   profile: { name: string; role: "owner" | "staff"; shop_id: string; branch_id: string | null };
   shopName: string;
+  /** Starter pack the shop was set up from; null until picked at setup. */
+  businessType: string | null;
   isOwner: boolean;
   branches: Branch[];
   branchId: string | null;
@@ -38,7 +40,7 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
   }
 
   const [{ data: shop }, { data: branches }] = await Promise.all([
-    supabase.from("shops").select("name").eq("id", profile.shop_id).single(),
+    supabase.from("shops").select("name, business_type").eq("id", profile.shop_id).single(),
     supabase.from("branches").select("id, name").order("created_at"),
   ]);
 
@@ -50,5 +52,5 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
     branchId = list.find((b) => b.id === wanted)?.id ?? list[0]?.id ?? null;
   }
 
-  return { userId: auth.user.id, profile, shopName: shop?.name ?? "", isOwner, branches: list, branchId };
+  return { userId: auth.user.id, profile, shopName: shop?.name ?? "", businessType: shop?.business_type ?? null, isOwner, branches: list, branchId };
 });
